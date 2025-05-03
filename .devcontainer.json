@@ -1,0 +1,10 @@
+{
+	"name": "Dev Container",
+	"image": "ubuntu:noble",
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "23.11"
+		},
+		"ghcr.io/devcontainers/features/git:1": {}
+	}
+}
