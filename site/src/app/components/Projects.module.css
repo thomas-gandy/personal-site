@@ -1,0 +1,10 @@
+.badge {
+    @mixin light {
+        background-color: var(--mantine-color-text);
+    }
+    @mixin dark {
+        background-color: var(--mantine-color-body)
+        /* background-color: white; */
+        /* color: black; */
+    }
+}
