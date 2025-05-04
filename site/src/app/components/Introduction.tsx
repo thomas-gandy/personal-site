@@ -1,11 +1,19 @@
-import { Center, Box, Container, Title, Text } from "@mantine/core";
+import { Button, Box, Container, Title, Text, ButtonProps, Stack } from "@mantine/core";
 import Image from "next/image"
 import me from "@/public/images/me.png"
+import { GithubIcon } from "@mantinex/dev-icons"
+import classes from "./Introduction.module.css"
+
+function GithubButton(props: ButtonProps & React.ComponentPropsWithoutRef<'button'>) {
+    return (
+        <Button {...props} leftSection={<GithubIcon size={16} />} className={classes.githubButton} />
+    );
+}
 
 export default function Introduction() {
     return (
         <>
-            <Center>
+            <Stack align="center">
                 <Box w={"12em"}>
                     <Image src={me} alt={"An average image"} draggable={false} priority={true} style={{
                         width: "100%",
@@ -15,10 +23,12 @@ export default function Introduction() {
                         objectFit: "cover"
                     }} />
                 </Box >
-            </Center>
+                <Title order={3}>Tom G</Title>
+                <GithubButton>GitHub</GithubButton>
+            </Stack>
 
-            <Container size={"sm"} mt={"xl"}>
-                <Title order={2} mb={"sm"}>A little bit about me</Title>
+            <Container size={"sm"}>
+                <Title order={2} mb={"xl"}>A little bit about me</Title>
                 <Text>
                     Hey!&nbsp; I&apos;m Tom, a Software Engineer.&nbsp; I currently work at an engineering company in Oxford.
                     &nbsp;I take on a wide range of roles and tasks such as general full-stack, cloud & CI/CD management, desktop

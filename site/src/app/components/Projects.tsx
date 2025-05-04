@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Card, Text, CardSection, Container, Group, Title } from "@mantine/core";
+import { Badge, Card, Text, CardSection, Container, Group, Title, Box } from "@mantine/core";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from 'three'
 import { Image as MantineImage } from "@mantine/core"
@@ -30,17 +30,17 @@ export default function Projects() {
     }, [x, y]);
 
     return (
-        <>
+        <Box>
             <Container w={"100%"} size={"sm"} mt={"xl"}>
-                <Title order={2} mb={"sm"}>Projects</Title>
+                <Title order={2} mb={"xl"}>Projects</Title>
                 <Text>
                     Below are some of my most recent projects across a variety of different topics.
                 </Text>
             </Container>
             <Container w={"100%"} size={"lg"} mt={"xl"}>
                 <Group justify="space-between">
-                    <Card w={"21em"} shadow="sm" padding="lg" radius="md" withBorder ref={ref}>
-                        <CardSection>
+                    <Card w={"21em"} shadow="sm" padding="lg" radius="md" withBorder>
+                        <CardSection ref={ref}>
                             <Canvas>
                                 <ambientLight intensity={0.1} />
                                 <directionalLight color={"white"} position={[0, 0, 5]} />
@@ -110,6 +110,6 @@ export default function Projects() {
                     </Card>
                 </Group>
             </Container>
-        </>
+        </Box>
     );
 }

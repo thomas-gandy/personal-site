@@ -1,16 +1,16 @@
 import { Stack } from "@mantine/core";
 import Experience from './components/Experience';
 import Projects from './components/Projects';
-import Articles from "./components/Articles";
+import Notes from "./components/Notes";
 import Introduction from "./components/Introduction";
 
 export default function Home() {
   return (
-    <Stack mt={"3em"} mb={"xl"}>
+    <Stack mt={"3em"} mb={"xl"} gap={"3.5em"}>
       <Introduction />
       <Experience />
       <Projects />
-      <Articles />
+      <Notes />
     </Stack>
   );
 }

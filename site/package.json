@@ -11,6 +11,7 @@
   "dependencies": {
     "@mantine/core": "^7.17.7",
     "@mantine/hooks": "^7.17.7",
+    "@mantinex/dev-icons": "^2.0.0",
     "@react-three/fiber": "^9.1.2",
     "@tabler/icons-react": "^3.31.0",
     "@types/three": "^0.176.0",

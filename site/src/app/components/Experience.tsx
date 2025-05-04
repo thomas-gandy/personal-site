@@ -4,7 +4,7 @@ import classes from "./Experience.module.css"
 export default function Experience() {
     return (
         <Container size={"sm"} mt={"xl"}>
-            <Title order={2} mb={"sm"}>Experience</Title>
+            <Title order={2} mb={"xl"}>Experience</Title>
             <Timeline classNames={{ itemBullet: classes.itemBullet }} bulletSize={70} lineWidth={2}>
                 <TimelineItem bullet={<Avatar size={"lg"} src={"/images/oracle-logo.png"} />}>
                     <Group w={"100%"}>
