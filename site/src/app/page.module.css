@@ -1,0 +1,28 @@
+.itemBullet {
+    border: none;
+
+    @mixin light {
+        background-color: var(--mantine-color-default);
+    }
+
+    @mixin dark {
+        background-color: var(--mantine-color-body);
+    }
+}
+
+.itemBulletTitle {
+    display: inline;
+    font-weight: 500;
+    line-height: 1;
+    margin-bottom: calc(var(--mantine-spacing-xs) / 2);
+}
+
+.badge {
+    @mixin dark {
+        background-color: var(--mantine-color-body);
+    }
+}
+
+.logo {
+    padding: var(--mantine-spacing-xs);
+}
