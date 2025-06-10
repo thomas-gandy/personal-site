@@ -1,6 +1,9 @@
 {
 	"name": "Dev Container",
-	"image": "ubuntu:noble",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+	"postAttachCommand": {
+		"install-npm-packages": "npm --prefix site install"
+	},
 	"features": {
 		"ghcr.io/devcontainers/features/node:1": {
 			"version": "23.11"
