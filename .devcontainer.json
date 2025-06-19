@@ -1,21 +1,19 @@
 {
-	"name": "Dev Container",
-	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-	"postAttachCommand": {
-		"install-npm-packages": "npm --prefix site install"
-	},
-	"features": {
-		"ghcr.io/devcontainers/features/node:1": {
-			"version": "23.11"
-		},
-		"ghcr.io/devcontainers/features/git:1": {}
-	},
+  "name": "Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "postAttachCommand": {
+    "install-npm-packages": "npm --prefix site install"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "23.11"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
 
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"esbenp.prettier-vscode"
-			]
-		}
-	}
+  "customizations": {
+    "vscode": {
+      "extensions": ["esbenp.prettier-vscode"]
+    }
+  }
 }

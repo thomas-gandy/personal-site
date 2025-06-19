@@ -1,6 +1,6 @@
 import { Stack } from "@mantine/core";
-import Experience from './components/Experience';
-import Projects from './components/Projects';
+import Experience from "./components/Experience";
+import Projects from "./components/Projects";
 import Notes from "./components/Notes";
 import Introduction from "./components/Introduction";
 
