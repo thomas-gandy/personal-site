@@ -1,9 +1,13 @@
 import type { NextConfig } from "next";
+import createMDX from '@next/mdx'
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  transpilePackages: ['three']
+  transpilePackages: ['three'],
   /* config options here */
+  pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
 };
 
-export default nextConfig;
+const withMDX = createMDX({})
+ 
+export default withMDX(nextConfig);

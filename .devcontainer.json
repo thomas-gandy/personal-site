@@ -13,7 +13,7 @@
 
   "customizations": {
     "vscode": {
-      "extensions": ["esbenp.prettier-vscode"]
+      "extensions": ["esbenp.prettier-vscode", "unifiedjs.vscode-mdx"]
     }
   }
 }
