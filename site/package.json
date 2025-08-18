@@ -9,8 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@mantine/core": "^7.17.7",
-    "@mantine/hooks": "^7.17.7",
+    "@mantine/core": "^8.2.4",
+    "@mantine/hooks": "^8.2.4",
     "@mantinex/dev-icons": "^2.0.0",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
