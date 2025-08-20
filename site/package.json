@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@mantine/carousel": "^8.2.4",
     "@mantine/core": "^8.2.4",
     "@mantine/hooks": "^8.2.4",
     "@mantinex/dev-icons": "^2.0.0",
@@ -19,6 +20,9 @@
     "@tabler/icons-react": "^3.31.0",
     "@types/mdx": "^2.0.13",
     "@types/three": "^0.176.0",
+    "embla-carousel": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "motion": "^12.23.12",
     "next": "15.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
