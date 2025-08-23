@@ -1,0 +1,11 @@
+.root {
+    background-color: var(--mantine-color-body);
+}
+
+.stack {
+  display: grid;
+
+  > * {
+    grid-area: 1 / 1;
+  }
+}
