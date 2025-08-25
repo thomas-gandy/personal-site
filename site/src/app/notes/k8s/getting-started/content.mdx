@@ -1,0 +1,128 @@
+These notes follow through Kubernetes' Learn Kubernetes Basics tutorial.  Kubernetes (k8s) is a container orchestration tool which schedules and deploys containers across a cluster of machines.
+
+# Create a Kubernetes cluster
+
+Kubernetes manages a cluster of machines to deploy containers to.  A cluster contains two types of resources: control plane and nodes.  The control plane coordinates all activities in the cluster (deployment, updates, etc).  Nodes are the workers that actually run the containers and are a VM or physical machine.  A machine can act as both a control plane and node.  Minikube is an example of a single VM that runs both the control plane and is a node itself.  Each node contains a Kubelet agent, in charge of managing the node and interacting with the control plane through the Kubernetes API.  Each node should also have a container management tools / runtimes like CRI-O or containerd.
+
+Production Kubernetes clusters should include at least three nodes for redundancy.  For development, you can use Minikube which creates a single VM on a local machine and deploys a one-node cluster.  Minikube is available on all important operating systems (MacOS and Linux).
+
+You can interact with the control plane with the `kubectl` command; it is attached to one cluster at any given time.
+
+## Pods
+
+A Kubernetes pod is a collection of app containers with shared storage and network resources.  Containers in the same pod are *co-located*.  Co-located containers are those which exist on the same physical or virtual machine in the same cluster, share port space, and come under a single IP address.  Pods can contain init and ephemeral containers, as well as traditional app containers.  Init containers run and complete before app container startup.  Typically, a single pod will contain a single container.  Kubernetes manages pods rather than containers.  By default, pods run in an isolated private network within the cluster.  A node can contain many pods.  Each pod in a node has its own internal cluster IP address.
+
+## Deployments
+
+A Kubernetes deployment monitors the health of a pod and restarts the container within if necessary.  They are the recommended way to deploy and scale pods.  Create a deployment in a cluster using the `kubectl` cluster management command; specifically,
+```
+kubectl create deployment NAME --image=image -- [COMMAND] [args...] [options]
+```
+It will create several Kubernetes API resources like Deployment and Pod.  A list of all supported Kubernetes resources can be listed with `kubectl api-resources`; pods and deployments are in this list.  The `kubectl get` command can be used to, as per the man page, `Display one or many resources`.
+
+Running `kubectl get <resource-type>`, subtituting in `deployments`, will list all deployments from the prior deployment creation command.  The deployment will create a pod for the container to live in; it can be queried by substituting in `pods` in the `get` subcommand.  `kubectl describe` is used to get more extensive information about a resource in human-readable form; think of it as `get` being similar to `docker <resource> ls` and `describe` being more similar to `docker inspect`.  You can get cluster events by substituting in `events`.  You can view logs for a pod with the `kubectl logs` command, the synposis of which is
+```
+kubectl logs [-f] [-p] (POD | TYPE/NAME) [-c CONTAINER] [options]
+```
+Where `-f` tails logs, `-p` shows logs for a previous version of the container in the pod if it existed, and `-c` can be the name of the container in the pod in the case of co-located containers.  Simple usage for above would be `kubectl logs <pod-name>`.
+
+By default, Deployments create a single pod for an application.  Deployments can be scaled out (creating new pods) by specifying replicas.  Scaling can be done manually or automatically (known as autoscaling).  Services handle the load balancing to scaled out pods.  Manually scale a deployment with the `kubectl scale` command whose man page states `Set a new size for a deployment, replica set, replication controller, or stateful set`, and synopsis states.
+```
+kubectl scale [--resource-version=version] [--current-replicas=count] --replicas=COUNT (-f FILENAME | TYPE NAME)
+```
+For example, `kubectl scale --replicas=<num-of-replicas> deployment <deployment-name>`.  Fetching deployments will look something like
+```
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+my-second-deployment   4/4     4            4           9h
+```
+Running `kubectl get rs` to fetch replica sets will show something like
+```
+NAME                              DESIRED   CURRENT   READY   AGE
+my-second-deployment-7f48658d6b   4         4         4       9h
+```
+Fetching pods would look something like
+```
+NAME                                    READY   STATUS    RESTARTS      AGE
+my-second-deployment-7f48658d6b-5cnlg   1/1     Running   1 (84m ago)   9h
+my-second-deployment-7f48658d6b-gkbg9   1/1     Running   0             5m10s
+my-second-deployment-7f48658d6b-vzfl6   1/1     Running   0             5m10s
+my-second-deployment-7f48658d6b-x7svc   1/1     Running   0             5m10s
+```
+Replica sets are formatted like `<deployment-name>-<random-string>`.  Pods are then formatted as `<replica-set-name>-<random-string>`.  So, the general hierarchy is `Deployment -> Replica Set -> Pod`.  You can scale down using the same command to scale up, but by passing a lower replica count.
+
+Scaling allows for rolling updates.  Use the `kubectl set image` command to (as per the help page) `Update existing container image(s) of resources`.  Specifically, with something like `kubectl set image deployment <deployment-name> <container-name>=<new-image>`.  `<container-name>` can be found by running a `kubectl describe` on the deployment which will return something like
+```
+Pod Template:
+  Labels:  app=my-second-deployment
+  Containers:
+   kubernetes-bootcamp:
+    Image:         docker.io/jocatalin/kubernetes-bootcamp:v2
+    Port:          <none>
+    Host Port:     <none>
+    Environment:   <none>
+    Mounts:        <none>
+```
+Here, `kubernetes-bootcamp` would be substituted into `<container-name>` and `<new-image>` could be something like `nginx`.  The status of a rollout can be queried with the `kubectl rollout status <resource-type> <resource-name>` command.  To revert to the last rollout, use the `kubectl rollout undo` command.  For example, `kubectl rollout undo <resource type> <resource-name>`.
+
+## Labels and selectors
+
+Labels and selectors allow you to group objects in k8s.  Labels can be attached to objects at creation time or later on; each is a key/value pair.  Selectors are a mechanism to query labels.  To create a new label for a resource, use the `kubectl label` command to `Update the labels on a resource`.  For example, `kubectl label <resource-type> <resource-name> <label-key>=<label-value>`.
+
+When using `kubectl get`, you can use the `-l` or `--selector` flag to specify a label query selector.  For example, `kubectl get pods -l <label-key>=<label-value>`.  Selectors can also be used to delete resources via `kubectl delete <resource-type> -l <label-key>=<label-value>`.
+
+Creating a deployment will by default create a label.  This label will then be applied to any pods or services created under that deployment.
+
+## Services
+
+By default, pods are only accessible by their private IP within the cluster.  Pods must be exposed as services to be publicly accessible.  `kubectl expose` can be used to expose a resource (in this case a Deployment) as a new Kubernetes service that is publicly accessible.
+
+A Service allows you to expose a network application, that can be running across multiple backend pods, as a single exposed endpoint.  In other words, it is an abstraction over a logical set of pods that enables external traffic exposure, load-balancing, and service discovery.  You may have a group of frontend pods that rely on a group of backend pods.  Pods are intended to be treated as ephemeral, as, in reality, you cannot know if a machine hosting pod(s) will be reliable.  It is not feasible for applications running in frontend pods to keep track of each IP of a backend pod.  A service object provides a mapping from an internal cluster IP assigned to the service object to a set of available pod endpoints.  Available pod endpoints are automatically scanned for by the service controller, typically by specifying a selector that looks for pods that have a certain label matching the value of the selector.
+
+Given a running deployment from earlier, you can create a service of type `LoadBalancer` to assign a public IP to the service object with a command like so
+```
+kubectl expose deployment <deployment-name> --type=LoadBalancer --port=<port>
+```
+which, as per the man page for `kubectl expose`, will `Expose a resource as a new Kubernetes service.`.
+
+Running a `kubectl get services` will show the newly created service with its cluster IP (which is internal to the cluster).  Cloud providers (e.g. Azure or AWS) would at this point automatically assign a public IP for the service.  With Minikube, it exposes a URL that will forward the request into the cluster.  Use the `minikube service` command, whose man page says `Returns the Kubernetes URL(s) for service(s) in your local cluster. In the case of multiple URLs they will be printed one at a time.`, to access this URL.  Specifically, running `minikube service <k8s-service-name>` will open up a tunnel from your local development host into the minikube cluster.
+
+Services can be exposed in four main ways:
+- ClusterIP
+- NodePort
+- LoadBalancer
+- ExternalName
+
+### ClusterIP
+
+Exposes the service with an internal cluster IP.  This is beneficial for abstracting a set of pods for e.g. a private backend service so that other e.g. client pods to these backend pods do not have to keep track of the internal cluster IP for each backend pod.
+
+### NodePort
+
+Exposes the service externally using `<node-ip>:<node-port>`.  For every selected node, each will have the same port exposed.  Because `NodePort` uses NAT (specifically NAPT) to map an external IP into a private cluster IP, it is essentially a superset of `ClusterIP`.  This is useful for abstracting a set of pods for e.g. a backend that needs to be exposed publicly. When making requests from external sources, requests should be send to the specific node IP, as there will not be a single gateway entrypoint.  Minikube, however, will expose both `NodePort` and `LoadBalancer` as a single host URL.
+
+### LoadBalancer
+
+Exposes a public, separate load balancer and assigns a static external IP to the service.  The load balancer will then load balance requests among target nodes.  In this sense, `LoadBalancer` is essentially a superset of `NodePort`, as it will forward requests to specific `<node-ip>:<node-port>` addresses.
+
+### ExternalName
+
+**TODO**
+
+Services don't have to be defined with a selector.  For example, if you want to manually map a service to a specific endpoint or if you are using `ExternalName`.  Services without selectors do not have an endpoint object created for them.
+
+## Cleanup
+
+Resources can be deleted with the `kubectl delete` command.  For example, `kubectl delete <resource-name>`.
+
+
+# Deploy an app
+
+You can access pods with a proxy instead of creating a service object around the pod and exposing a public IP into the cluster for the service.  Running `kubectl proxy` will open up / create an application gateway (proxy server) in-between the local machine and cluster API server.
+
+# Explore an app
+
+You can execute commands on a container in a pod with `kubectl exec` whose man page states `Execute a command in a container`.  Its most simple usage when dealing with a single container pod is
+```
+kubectl exec (POD | TYPE/NAME) -- COMMAND [args...] [options]
+```
+For example, `kubectl exec <pod-name> -- echo 'Hello, World!'`.  Or, to attach a shell, `kubectl exec <pod-name> -it -- bash`
