@@ -1,0 +1,9 @@
+K8s controllers are control loops that monitor cluster state (via the control plane) and make change requests when needed to bring the system closer to the desired state.  Controllers track at least one resource type.  Their manifest spec field represents the desired state.  Controllers can carry out actions themselves (e.g. if changes must be made external to the cluster) or request a change to be made via the control plane API.  Built-in controllers regulate state via the API.
+
+A controller uses a certain resource as its desired state and uses a different resource to make that desired state happen.  For example, a Job controller monitors Job objects for new jobs and then tells the API to schedule Pod objects to run the work to bring the Job task to completion.  Jobs are created outside the Job controller and the Job controller creates Pods to complete the Job.  The Job controller will know to only delete the Pods created by it.  Controllers can also update the 'input' objects that started the work.
+
+Built-in controllers run inside the control plane.  Custom-written controllers can themselves be run in Pods or external to the cluster.  If a controller needs to make changes outside of the cluster (e.g. the control plane has desired state that can only be satisfied through external means), it will make the changes and then report back to the API server.
+
+### Resources for these notes
+
+- [Controller concepts in Kubernetes](https://kubernetes.io/docs/concepts/architecture/controller/)
