@@ -1,0 +1,182 @@
+# Resources used
+
+- [RFC 790 Assigned Numbers]()
+- [RFC 791 IPv4]()
+- [RFC 796 IPv4 Address Mappings]()
+
+# Introduction
+
+Internet Protocol (IP) is a specification for transferring packages of bits (datagrams) from source to destination, where hosts are identified by fixed length addresses.  It does this by specifying two main functions: addressing and fragmentation.  Host-to-host protocols like TCP delegate to IP to carry their data.  IP delegates to local network to forward the datagram to the next gateway or next host.
+
+IP implements logic for addressing and fragmentation.  *Routing* is when internet modules (IP implementations) select a path for transmission.  IP header fields can specify if a datagram is part of a fragment if network datagram size is limited.  IP treats each datagram as independent and unrelated to any other datagram.  Internet modules exist on any host / gateway that supports IP.
+
+*Time to Live* is set by the datagram's sender and decrements on each hop.  At zero, it is destroyed.  *Header Checksum* verifies the datagram was sent without modification.  If incorrect, it is destroyed.  IP doesn't provide reliability; no acks or retransmissions, only a header checksum.  Errors may be reported via Internet Control Message Protocol (ICMP), part of the IP specification.  *Options* and  *Type of Service* are covered later.
+
+The words octet and byte are used interchangably.  Binary is formatted like `<digits>b` and hex like `0x<digits>`.
+
+# Overview
+
+For sending data, applications prepare it to send, then delegate to the internet module, passing the destination address as an argument.  The module prepares a datagram header and attaches the application data, then chooses a local address to send it to (often a local gateway) **[1]**.  The module delegates the datagram (which includes the destination address) and local address to the local network interface (LNI) which is a lower module.  The LNI then creates a local network header, attaches the datagram, then sends it over the network.
+
+For receiving data, the LNI on e.g. the gateway host strips the local network header, extracts the datagram, and passes it up to its internet module.  The module can determine whether the datagram should be forwarded / sent again.
+
+### Addressing
+
+Higher level protocols map names to IP addresses.  Internet modules map internet addresses to local addresses (i.e. in the immediate network).  Lower level protocols map local addresses to routes.  IP addresses are an abstraction over actual addressing used by a physical network.
+
+- **Name**: What is sought after
+- **Address**: Location of what is sought after
+- **Route**: How to get to what is sought after
+
+Addresses are four octets (bytes) (32 bits).  They start with a network number and the rest is a local address within that network; this local address is called the *rest* field.  When the network number is zero, it means the current network; only used in specific ICMP messages.
+
+- **Class A**: High bit is `0`, next 7 are network, next 24 are local
+- **Class B**: High bits are `10`, next 14 are network, next 16 are local
+- **Class C**: High bits are `110`, next 21 are network, next 18  are local
+- **Extended Addressing Mode**: High bits are `111`, reserved for future use
+
+Hosts in a local network should be able to act / be perceived as multiple hosts; i.e. multiple datagrams with different destination addresses can route to the same host on its one physical (real-world) interface (this works without NAT, as NAT predates RFC 791).  This 'mapping' from multiple IPs to interface can be done in the host module upon receiving the datagram, performing a lookup to see what IP maps to which interface.  This can also be known as IP aliasing.  It is like having 'logical' addresses for a given physical interface.  In short, one interface can listen on multiple IP addresses / have datagrams with different destination IPs (again, even without NAT).
+
+**[7]**.
+
+A host should also be able to have multiple physical interfaces that it can accept datagrams from (e.g. ethernet and WiFi interfaces).  These datagrams must be able to be treated as if they were sent over a single interface to the host.  The interfaces can bind to the same IPs but more commonly have different IPs.  Hosts that have multiple physical interfaces are known as multi-homing hosts.
+
+### Fragmentation
+
+Fragmentation is needed if a datagram goes through a local network that limits packet size.  Fragement reassembly happens in the destination.  Fragmentation and reassembly can happen within a network as it occurs below IP and higher level protocols (without the module's knowledge); this type of fragmentation is called network-dependent or intranet fragmentation.
+
+The Fragment Offset field holds the original position in the datagram.  The Total Length field, when a fragment, identifies the length of the fragment.  The More Fragments control flag indicates the last fragment when set to zero.  Fragment receivers use the Identification field in the IP header to ensure the fragment belongs to the correct datagram.  The module creating the datagram specifies the ID value which is unique to the tuple `(source, destination, protocol)` whilst the datagram is active in the system; `protocol` is passed to the IP module from the higher level protocol.
+
+Datagrams that disallow fragmentation (with the May Fragment control flag) through a limiting local network are dropped.  Non-fragmented datagrams have More Fragments and Fragment Offset zeroed.
+
+When fragmenting a large datagram, the data (not header) will be split into elements of allowed sizes, each element division boundary being a multiple of 64 (bits) (8 bytes/octets).  The number of these 8 bytes in a fragment's data is known as the Number of Fragment Blocks (NFB).  The last element doesn't have to have a size divisible by 64.  The header fields will be copied into each new fragment datagram.  For each new fragment datagram, the respective element data is copied in and the Total Length field is set to the length of that datagram.  The `more-fragments` flag is enabled when there are successive fragments, and inherited from the large datagram otherwise; this enables fragmentation to work 'recursively' across multiple networks.  The Fragment Offset field for a fragment will be set to the cumulative number of 64-bit blocks (NFBs) contained in all prior newly created fragments and including the current fragment (as it is non-zero-indexed), plus the fragment offset field of the large datagram that has just been fragmented into this current fragment (which itself may be a fragment); like `more-fragments`, this allows it to work recursively.
+
+When receiving fragmented datagrams, the internet module will assemble all that have the same value for fields: identification, source, destination, and protocol.  The data in each fragment is assembled via the fragment offset field **[2] [3]**.  The first will have its offset field set to zero, and the last will have the `more-fragments` flag reset to zero.  An unfragmented datagram will have `MF` and `FO` both set to zero.
+
+The Total Length (as specified below) allows a maximum datagram size of `65_535` bytes.  As each fragment size must be a multiple of eight bytes, this is the minimum size a fragment can be.  So, a given datagram can produce up to `65536 / 8 = 8192` fragments.  As the IPv4 header can take up to sixty bytes (as specified below), and eight bytes is the minimum fragment size, all modules must be able to forward a datagram of at least 68 bytes without any fragmentation.
+
+Fields affected by fragmentation include: Options, More Fragments, Fragment Offset, Internet Header Length, Total Length, and Header Checksum.  The maximum size of a datagram in a network is called the Maximum Transmission Unit (MTU).
+
+### Gateways
+
+Gateways implement IP for forwarding datagrams.  Higher level protocols don't need to be implemented.  They implement the Gateway to Gateway Protocol (GGP) for routing coordination.  The IP for gateways includes GGP, so overall gateway IP includes IP, ICMP, and GGP.
+
+## Specification
+
+The following subsections detail the contents of the IP header, ordered sequentially by their bit positions with the bit range included in the subheader in the form `[<inclusive start bit>, <exclusive end bit>)`.  In total, the header can take up to 60 bytes (when options contains data); RFC 791 assumes a word length of 32 bits, so this would be 15 words.  When there are no options, a header is 20 bytes (5 words).
+
+### Version `[0, 4)`
+
+Indicates header format.  Here IPv4 is assumed.
+
+### Internet Header Length (IHL) `[4, 8)`
+
+Length of header in terms of number of 32 bit (4 byte) blocks.  It points to the start of the datagram's data.  The minimum value for IHL is 5 in the case options is not specified (i.e. it would be pointing to the exclusive end of the destination address' bit number).
+
+### Type of Service `[8, 16)`
+
+### Total Length `[16, 32)`
+
+Total length of datagram (header + data) in bytes, allowing a total size of `2^16 - 1 = 65_535` bytes.  The minimum datagram size a host must accept is 576 bytes.  Hosts should only send datagrams larger than 576 bytes if they know the destination will accept.  A large header would be 60 bytes, but the division would end on a 64 bit boundary, so 576 would still allow a reasonably sized data segment of 512 bytes.
+
+### Identification `[32, 48)`
+
+Used for assembling fragments.
+
+### Flags `[48, 51)`
+
+The first bit is reserved so must always be `0`.  The second represents whether the datagram allows fragmentation (May Fragment).  The third signals whether the fragment is the last (Last Fragment).
+
+### Fragment Offset `[51, 64)`
+
+Measured in units of eight bytes (64-bits) (two words), where a unit could be called a fragments block size.  Indicates the start bit location in the originating datagram to which the fragment belongs.
+
+### Time to Live `[64, 72)`
+
+Bounds the maximum lifetime of a datagram so it doesn't exist indefinitely.  Decremented each time the datagram is processed.  When it reaches zero, it is discarded.
+
+### Protocol `[72, 80)`
+
+Specifies the protocol used in the data part of the datagram.  Valid values are defined in RFC 790.  Examples include TCP, UDP, Multiplexing, ICMP and GGP.  Essentially, higher level protocols.
+
+#### Header Checksum `[80, 96)`
+
+Calculated on the header only.  Recomputed each time the header is processed (as TTL decreases each time, changing the header).  Calculated by first doing a one's complement sum of all 16-bit words in the header, then performing a one's complement of that result.  During calculation, the checksum field itself is considered to be zero.
+
+### Source Address `[96, 128)`
+
+The address of the sending host.
+
+### Destination Address `[128, 160)`
+
+The address of the receiving host.
+
+### Options `[160, 184)`
+
+All options must be supported by a module, but options don't have to transmitted at all in datagrams.  There are two possible formats the field can be in: a single byte or multiple bytes.  Single-byte format will contain a single byte, holding the `option-type`.  Multi-byte format will contain one byte for `option-type`, another for `option-length`, and the rest are `option-data` bytes.
+
+`option-type` (one byte) has three 'fields'.  The first bit is the *copied* flag, indicating whether this option is copied into all fragments on fragmentation.  The next two bits are the *option class*: `00` represents control, `01` is reserved, `10` is for debugging / measurement **[4]**, and `11` is reserved.  *Option class* simply provides an easy way for humans to more easily understand at a glance what the intended purpose of an option is.  The last five bits are the *option number*, which is the actual ID of the desired option.
+
+`option-length` (one byte) is the length of the `option-type` octet + `option-length` octet + all `option-data` octets.  The presence of `option-length` or `option-data` implies presence of the other.
+
+The options defined by IPv4 are described in the following subsections.
+
+#### End of Option list
+
+Specified in just `option-type`.  Class and number are zero.  Specified at the end of all options, not after each.  Only needs to be specified if the final bit of the header's option field doesn't coincide with the end of the header (i.e. there is padding after the option field); this ensures that padding is not interpreted as an option.  Can be copied, added, or deleted on fragmentation or other reason.
+
+#### No Operation
+
+Specified in just `option-type`.  Class is zero and number is one.  Useful for aligning subsequent options on a 32-bit word boundary.
+
+#### Security **(TODO)**
+
+Class is zero, number is `10b`.
+
+#### Record Route
+
+Some quick prerequisite terminology is required before understanding Record Route.  An 'ingress' address means the address of a module from the perspective of an 'external' network a datagram has been sent from, and an 'egress' address means the address of a module from the perspective of the network a datagram is being forwarded into.
+
+Record Route allows the route of a datagram to be recorded.  This option is isn't necessary for a receiver to be able to send a datagram back to the sender.  This option contains an `option-type` value of 7, an `option-length`, and `option-data`.  `option-data` is split into *pointer* (one byte) and *route data* (`option-length - 3` bytes).  The subtraction is to account for the three bytes of `option-type`, `option-length`, and `option-data`'s pointer.  Pointer holds an integer that specifies the byte number (using non-zero-indexing) in the route data that is ready to store the next address.  *Route data* must initially be set to zero (as it starts being added to at the first hop after the source module).  The pointer offset is relative to the start of the option and its minimum allowed value is four.  This option is not copied on fragmentation, only ever goes in the first fragment, and appears at most once in any given datagram.
+
+Each time an internet module routes a datagram and the record route option exists, the module adds its egress address to the route data at the position specified by the pointer and increments the pointer by four.  Storing the egress address for the module (call it *module A*) is useful because the subsequent module the datagram arrives at (call it *module B*) will identify *module A* with *A*'s egress address, not the ingress address of *module A* for whatever interface the datagram arrived through.
+
+If *pointer* is greater than *length* it means the route is full and the pointer is specifying a byte outside the option which is invalid.  The source host must ensure `options-data` is large enough to fit the expected addresses, ensuring the header doesn't exceed the max header length of 60 bytes.  If the route data is full then no more routes are added and the datagram will continue towards its now known final destination.  If there is `0 < space < 32`, the datagram is discarded as an error; an ICMP message may be sent to the source host.
+
+**[5]**
+
+#### Loose Source and Record Route
+
+Understand Record Route first.
+
+This option has an `option-type` value of 131.  It is similar to the Record Route option, but rather than `route data` initially being empty and just being used to record the IP address of intermediate internet modules as they are encountered, `route data` initially holds IP addresses of internet modules it must be sent to on its route to the destination.  As the datagram progresses and reaches a module with a specified source address in `route data`, the egress IP address of that module replaces the current source address field value and its ingress IP address in `route-data` (this is the Record Route behaviour coming into play).
+
+The datagram is allowed to travel through any other intermediate internet modules (though these will not ever be recorded in the route) on the way to its next source address; the route is rather 'loosely' specified in this sense.  The first source address is the first destination hop from the originating module.  The pointer points to the start of the route data, so is initially `4`.  Immediately before dispatch, the address pointed to is set as the destination field value and the pointer is incremented by four.  When the datagram arrives at the address specified in the destination field and there are more addresses to process, the indexed address in `route-data` is assigned to the destination field and the pointer is incremented by four **[6]**.
+
+This option must be copied on fragmentation, and will appear at most once in a datagram.
+
+#### Strict Source and Record Route
+
+Understand Loose Source and Record Route first.
+
+Strict Source and Record Route has an `option-type` value of 137.  It is similar to the Loose Source and Record Route option, except from internet module must send the datagram directly to the next address specified in the source route without any intermediaries.
+
+#### Stream Identifier **(TODO)**
+
+#### Internet Timestamp **(TODO)**
+
+### Padding `[184, 192)` **(TODO)**
+
+## Todos
+
+1) I assume it will try to find a destination match with other hosts connected directly to it, and if none are found, will delegate to the gateway
+2) Will each fragment be fully assembled by the module before being forwarded, or is that an implementation detail?
+3) When the fragments are assembled, will the module know the full size of the assembled fragments beforehand for buffer allocation (if so, how?), or will it have to use something like a vector?
+4) Elaborate more on what an option class is actually for and what debugging / measurement actually means
+5) Does Record Route include the source and destination, or just the intermediaries?
+6) Address this misunderstanding: The datagram could arrive at its destination before completing the route data.  This could be because it coincidentally arrived there on its way to the next source address or the source address in route data was coincidentally or otherwise the destination address.  In either case, the pointer into route data .  If this occurs, the intended overall destination address is swapped with the address in route data that the pointer points to.  Then, the destination's internet module will ..... When the datagram has gone through all specified routes, all further routing is based solely on the original destination address.
+7) Go into more detail on why you would want to be able to treat a single physical host as several distinct hosts, in other words, have multiple IP's bound to a single interface.  A beginner question may be, why would that need to be, as 
+
+I assume anywhere NAT is done, it must keep a table mapping the original source address to the  so that when a receiver sends a message back to a sender's source address it is mapped correctly.  No, this cannot be correct, as the original source address might already be assigned in the destination's network.  So, at NAT, the source address in the datagram will need to be replaced, being assigned / allocated with a different IP that is currently free in the destination's network.  The source address cannot be set to the destination network's internal gateway IP as if multiple originating hosts were sending data into the network to two or the same destination host(s), when the destination hosts try to send a message back to their respective originating hosts, the gateway would just see its IP and wouldn't be able to differentiate which datagrams should be forwarded back to which originating host.
+
+Is it possible for a single host to be connected to multiple gateways or other hosts over the same interface?  Same physical interface?  Do logical interfaces exist?  If so, over logical interfaces?
