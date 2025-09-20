@@ -3,6 +3,7 @@
 - [RFC 790 Assigned Numbers]()
 - [RFC 791 IPv4]()
 - [RFC 796 IPv4 Address Mappings]()
+- [RFC 1122 Requirements for Internet Hosts]()
 
 # Introduction
 
@@ -35,11 +36,15 @@ Addresses are four octets (bytes) (32 bits).  They start with a network number a
 - **Class C**: High bits are `110`, next 21 are network, next 18  are local
 - **Extended Addressing Mode**: High bits are `111`, reserved for future use
 
-Hosts in a local network should be able to act / be perceived as multiple hosts; i.e. multiple datagrams with different destination addresses can route to the same host on its one physical (real-world) interface (this works without NAT, as NAT predates RFC 791).  This 'mapping' from multiple IPs to interface can be done in the host module upon receiving the datagram, performing a lookup to see what IP maps to which interface.  This can also be known as IP aliasing.  It is like having 'logical' addresses for a given physical interface.  In short, one interface can listen on multiple IP addresses / have datagrams with different destination IPs (again, even without NAT).
+Hosts in a local network should be able to act / be perceived of as multiple hosts; i.e. multiple datagrams with different destination addresses can route to the same host on its one physical (real-world) interface (this works without NAT, as NAT predates RFC 791).  This can also be known as IP aliasing.  It is like having 'logical' addresses for a given physical interface.  In short, one interface can listen on multiple IP addresses / have datagrams with different destination IPs (again, even without NAT).
 
 **[7]**.
 
-A host should also be able to have multiple physical interfaces that it can accept datagrams from (e.g. ethernet and WiFi interfaces).  These datagrams must be able to be treated as if they were sent over a single interface to the host.  The interfaces can bind to the same IPs but more commonly have different IPs.  Hosts that have multiple physical interfaces are known as multi-homing hosts.
+A host should also be able to have multiple physical interfaces that it can accept datagrams from (e.g. ethernet and WiFi interfaces).  A host must also be able to support multiple datagrams coming in from multiple physical interfaces and to treat them as if they all arrived through the same interface.  The physical interfaces can bind to the same IPs but more commonly have different IPs.  Hosts that have multiple physical interfaces in RFC 791 are known as multi-homing hosts.
+
+Later RFCs like 1122 call multi-homed hosts any host that can have multiple IP addresses assigned to one or more single physical interfaces (aka logical interfaces), each of which can be connected to the same or different networks.  Modern multi-homing is only when multiple distinct logical addresses are involved.  If a single logical address / interface is bound to multiple physical interfaces, this is known as link-layer multiplexing, not multi-homing.
+
+One use case of multi-homing (in the 1122 sense) is there could be many 'logical' networks in a physical network.  Therefore, a single (or multiple) host's physical interface(s) (e.g. ethernet and WiFi) could have multiple logical interfaces, one per logical network.  This use case of multi-homing is known as Multiple Logical Networks.  Another use case is a host may have many IP addresses aliased on one or more physical interfaces that have the same network ID.  Each of these logical interfaces in this case is known as a logical host.  This use case of multi-homing is known as Multiple Logical Hosts.  Simple multi-homing is multi-homing in its traditional 791 sense.  Each logical interface is mapped to a single, separate physical interface.
 
 ### Fragmentation
 
@@ -59,7 +64,7 @@ Fields affected by fragmentation include: Options, More Fragments, Fragment Offs
 
 ### Gateways
 
-Gateways implement IP for forwarding datagrams.  Higher level protocols don't need to be implemented.  They implement the Gateway to Gateway Protocol (GGP) for routing coordination.  The IP for gateways includes GGP, so overall gateway IP includes IP, ICMP, and GGP.
+Gateways implement IP for forwarding datagrams.  Higher level protocols don't need to be implemented.  They implement the Gateway to Gateway Protocol (GGP) for routing coordination.  The IP for gateways includes GGP, so overall gateway IP includes IP, ICMP, and GGP.  Hosts can act as gateways with embedded gateway software.
 
 ## Specification
 
@@ -139,7 +144,7 @@ Some quick prerequisite terminology is required before understanding Record Rout
 
 Record Route allows the route of a datagram to be recorded.  This option is isn't necessary for a receiver to be able to send a datagram back to the sender.  This option contains an `option-type` value of 7, an `option-length`, and `option-data`.  `option-data` is split into *pointer* (one byte) and *route data* (`option-length - 3` bytes).  The subtraction is to account for the three bytes of `option-type`, `option-length`, and `option-data`'s pointer.  Pointer holds an integer that specifies the byte number (using non-zero-indexing) in the route data that is ready to store the next address.  *Route data* must initially be set to zero (as it starts being added to at the first hop after the source module).  The pointer offset is relative to the start of the option and its minimum allowed value is four.  This option is not copied on fragmentation, only ever goes in the first fragment, and appears at most once in any given datagram.
 
-Each time an internet module routes a datagram and the record route option exists, the module adds its egress address to the route data at the position specified by the pointer and increments the pointer by four.  Storing the egress address for the module (call it *module A*) is useful because the subsequent module the datagram arrives at (call it *module B*) will identify *module A* with *A*'s egress address, not the ingress address of *module A* for whatever interface the datagram arrived through.
+Each time an internet module routes a datagram and the record route option exists, the intermediate module (whether that be for a host or gateway) adds its egress address to the route data at the position specified by the pointer and increments the pointer by four.  Storing the egress address for the module (call it *module A*) is useful because the subsequent module the datagram arrives at (call it *module B*) will identify *module A* with *A*'s egress address, not the ingress address of *module A* for whatever interface the datagram arrived through.
 
 If *pointer* is greater than *length* it means the route is full and the pointer is specifying a byte outside the option which is invalid.  The source host must ensure `options-data` is large enough to fit the expected addresses, ensuring the header doesn't exceed the max header length of 60 bytes.  If the route data is full then no more routes are added and the datagram will continue towards its now known final destination.  If there is `0 < space < 32`, the datagram is discarded as an error; an ICMP message may be sent to the source host.
 
