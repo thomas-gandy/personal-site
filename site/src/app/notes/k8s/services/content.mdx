@@ -1,0 +1,4 @@
+Services are k8s objects that let you expose several pods (the logical set of endpoints) behind a single endpoint so that you don't need to keep track of individual pod IPs.  This is useful for Deployments which abstract away pod creation.  Pods abstracted by a Service are normally defined with a label selector.
+
+Ingress is a separate object that can be used to achieve similar functionality as a Service, but at a higher level, where the services can be the logical set of endpoints.  It is HTTP(S) only and acts as the entrypoint into the cluster.  It allows consolidation of resource rules; e.g. it could route to different applications in a cluster whilst providing TLS termination.
+
