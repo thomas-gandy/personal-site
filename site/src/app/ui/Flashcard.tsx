@@ -29,18 +29,18 @@ export default function Flashcard({ front, back, ...boxProps }: FlashcardProps) 
           cursor: "pointer",
         }}
         classNames={classes}
-        shadow="sm"
         p="lg"
+        radius={"md"}
         pos="relative"
         withBorder
         onClick={() => setFlipped(!flipped)}
-        animate={{ rotateY: flipped ? 180 : 0 }}
+        animate={{ rotateX: flipped ? 180 : 0 }}
         transition={{ duration: flipDurationSecs, type: "spring" }}
       >
         <div
           style={{
             ...faceProps,
-            transform: "rotateY(0deg)",
+            transform: "rotateX(0deg)",
           }}
         >
           {front}
@@ -48,7 +48,7 @@ export default function Flashcard({ front, back, ...boxProps }: FlashcardProps) 
         <div
           style={{
             ...faceProps,
-            transform: "rotateY(180deg)",
+            transform: "rotateX(180deg)",
           }}
         >
           {back}

@@ -14,7 +14,7 @@ export default function Flashcards({ data }: FlashcardsProps) {
   return (
     <div style={{ display: "flex" }}>
       <Carousel
-        slideSize={"75%"}
+        slideSize={"50%"}
         height={"100%"}
         withControls={false}
         withIndicators
