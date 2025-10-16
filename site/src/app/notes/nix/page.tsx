@@ -196,6 +196,13 @@ const content = (
     </Text>
 
     <br />
+    <Title order={2}>Entering a Nix environment</Title>
+    <Text>
+      You can manually enter a Nix shell environment with specified packages by using the{" "}
+      <Code>nix-shell [-p | --packages] &lt;space-separated-package-names&gt;</Code> command.
+    </Text>
+
+    <br />
     <Title order={2}>Difference between Nix and the Nix language</Title>
     <Text></Text>
 
@@ -467,7 +474,8 @@ const content = (
     <Title order={3}>Functions</Title>
     <Text>
       Nix functions have no names (so are known as lambdas) and always take exactly one argument. They are another way
-      of assigning names to values (assignments), alongside attribute sets and <Code>let</Code> expressions.
+      of assigning names to values (assignments), alongside attribute sets and <Code>let</Code> expressions. A
+      function&apos;s body must contain exactly one expression.
     </Text>
     <Text>
       An example of a single argument function definition is <Code>x: x + 1</Code>. Although functions take only one
@@ -601,7 +609,7 @@ export default function Page() {
         </HeroText.Title>
         <HeroText.Description>Notes on an introduction to Nix syntax and language features.</HeroText.Description>
       </HeroText>
-      <Container size={"sm"} mt={"xl"} mb={"xl"}>
+      <Container strategy="grid" size={"sm"} mt={"xl"} mb={"xl"}>
         <Stack>{content}</Stack>
       </Container>
     </>
