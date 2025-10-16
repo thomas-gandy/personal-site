@@ -1,0 +1,63 @@
+import { Text } from "@mantine/core";
+
+<br />
+Feed-forward neural networks are often abbreviated to neural networks.  Neural networks with one or more additional layers to the input / output layers (aka 'hidden' layers) are called deep learning.
+
+<br />
+# Resources used for these notes
+- [Machine Learning Design Patterns | Lakshmanan, Robinson, Munn](https://learning.oreilly.com/library/view/-/9781098115777/)
+
+
+
+<br />
+# Data and Feature Engineering
+
+Datasets refer to data used for training, validation, and testing a model.  Validation is used to evaluate model performance after each training epoch / data pass through.  Validation performance decides when to stop training and choose hyperparameters **(TODO: define hyperparameters)**.  Datasets should be split to be statistically similar.
+
+Structured data is numerical (integer, float, etc) or categorical.  Categorical data is data that can be divided into a finite set of groups; something that could be put in a CSV like favoutite fruits for men and women combined, or favourite fruits for them separately.  Unstructured data refers to data that cannot be nicely tabularised or structured, such as video, audio, or bulk text.
+
+Non-numerical data (whether that be structured categorical data or unstructured data) has to be transformed / preprocessed into a numerical form understood by the model.  Preprocessing is also called feature engineering or data transformation.  Features are what models take as inputs (its parameters in traditional software).
+
+*Input* defines a single entry of data in the dataset before it is feature engineered.  *Feature* is the result of input after feature engineering.  Even numerical data may have to be feature engineered if the input is epoch seconds but the model expects a number representing the day in the week (the feature).
+
+An *instance* is what you'd like to send to the model.  It should be feature engineered before being passed into the model and, if from the test dataset, it shouldn't include the expected output.  The term *instance* doesn't only apply to testing the results of a model.  Instances are also used when training a model, which uses training examples.  A training example is a single *instance* of data from the dataset that will be fed into the model and will also have outputs / labels associated with it.  The term *label* can be used either to refer to the attached expected output for the instance in the dataset (aka a ground truth label), or as the model output (aka the prediction) for the instance once run through the model.
+
+Once features (input parameters) for the model have been decided, data validation should occur to identify possible bias / inconsistencies / incorrect labels in the input dataset (e.g. if a certain feature is missing or not well represented / varied in training data).  Techniques exist that can improve results it isn't possible to gain more test data with that certain feature.
+
+<br />
+# The Machine Learning Process
+
+Training, evaluation, and feature engineering can be performed many times.  Sending data to and getting output from a model (whether local or deployed) is called *prediction*.  For deployed models, online prediction is near real time and batch prediction is more offline / for detached long-running computations.
+
+*Prediction* is generally used to describe a result that can happen in the future.  For model results less time-bound like classification, the term *inference* is normally used instead.
+
+*Streaming* is when new data is continuously ingested and you want to use it for training or predictions.  This incoming data will have to be processed quickly before forwarding to e.g. the training step.  ML pipelines represent the automated flow of data from feature engineering through to prediction.  Without ML pipelines, you'd manually wait until enough new data is available to then re-perform the feature engineering, training, and evaluation steps.
+
+<br />
+# Roles
+
+Data scientists collect and process datasets and typically build the initial models.  Data engineers focus on infrastructure and things like data ingestion/transfer and pipelines.  ML engineers are like data engineers but specifically build infrastructure for efficiently training and deploying (including updating/versioning and prediction response) models instead of just for data.
+
+Data engineering could occur first to ensure data is being ingested.  Data scientists can then create models that train / test on the ingested data.  ML engineers can then take the model from development to production.
+
+Research scientists research new areas of ML.  Data analysts interpret and display data in useful ways to other people.  Developers often use the infra from ML engineers to provide data for UIs and to submit data to models.
+
+<br />
+# Challenges in ML
+
+## Data Quality
+
+Timeliness is the latency between an event occurring and it being added to a database.  It can be useful to record the time of the even and then take it into account during feature engineering.
+
+## Reproducibility
+
+
+
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
