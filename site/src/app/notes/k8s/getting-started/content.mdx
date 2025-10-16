@@ -82,9 +82,11 @@ Given a running deployment from earlier, you can create a service of type `LoadB
 ```
 kubectl expose deployment <deployment-name> --type=LoadBalancer --port=<port>
 ```
-which, as per the man page for `kubectl expose`, will `Expose a resource as a new Kubernetes service.`.
+which, as per the man page for `kubectl expose`, will `Expose a resource as a new Kubernetes service.`.   Running a `kubectl get services` will show the newly created service with its cluster IP (which is internal to the cluster).  Cloud providers (e.g. Azure or AWS) would at this point automatically assign a public IP for the service.
 
-Running a `kubectl get services` will show the newly created service with its cluster IP (which is internal to the cluster).  Cloud providers (e.g. Azure or AWS) would at this point automatically assign a public IP for the service.  With Minikube, it exposes a URL that will forward the request into the cluster.  Use the `minikube service` command, whose man page says `Returns the Kubernetes URL(s) for service(s) in your local cluster. In the case of multiple URLs they will be printed one at a time.`, to access this URL.  Specifically, running `minikube service <k8s-service-name>` will open up a tunnel from your local development host into the minikube cluster.
+With Minikube, it exposes a URL that will forward the request into the cluster.  Use the `minikube service` command, whose man page says `Returns the Kubernetes URL(s) for service(s) in your local cluster. In the case of multiple URLs they will be printed one at a time.`, to access this URL.  Specifically, running `minikube service <k8s-service-name>` will open up a tunnel from your local development host into the minikube cluster.
+
+Alternatively, you can use the `kubectl port-forward <resource-type>/<resource-name>` command to forward local ports into a pod; think of it as the local machine extending its reach into pods, so that when a request inside the local machine is made to a port, it ends up coming out inside the pod.
 
 Services can be exposed in four main ways:
 - ClusterIP

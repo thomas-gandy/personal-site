@@ -42,7 +42,7 @@ export default function Page() {
       </HeroText>
       <Container size={"sm"} mt={"xl"} mb={"xl"}>
         <Content />
-        <Flashcards data={flashcardData} />
+        {/* <Flashcards data={flashcardData} /> */}
       </Container>
     </>
   );
