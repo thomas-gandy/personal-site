@@ -1,0 +1,63 @@
+## Resources these notes were taken from
+- [Durable Functions types and features](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-types-features-overview)
+- [Durable orchestrations](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-orchestrations?tabs=csharp-inproc)
+
+## Overview of standard Functions
+Azure Functions are a serverless solution to letting you run your code.  Functions manages the
+infrastructure your code runs on.  You set up triggers and bindings in order to start execution
+of your code.
+
+Triggers specify what event will begin code execution; that could be a HTTP request,
+a blob being added to blob storage, or a message being added to a message queue.
+
+Bindings specify declarative connections to resources. For example, rather than specifying how to connect and then
+write output to blob storage inside your Functions body, you specify what resource you want and the necessary
+credentials, then Functions will provide you with a ready-to-go SDK client object to interact with that resource.
+In that sense, triggers are a type of binding.
+
+## Overview of Durable Functions
+Azure Durable Functions are an extension of traditional Azure Functions.  Standard Azure Functions are simple; they
+are just a function or method with trigger and binding attributes.  Durable Functions are different in that
+there are four categories a Functions function / method can fit into: client, orchestrator, activity, and entity.
+
+### Activity Functions
+Activity Functions are essentially just traditional Functions; the only difference is that they are now being run
+in the context of Azure's Durable Functions, so need a name to distinguish it from the other introduced types.  You
+can specify triggers and bindings just like with traditional functions.  They can only have one value passed to them,
+so have to use tuples, arrays, or complex types.
+
+### Client Functions
+The term Client Functions is more of a general umbrella term used to describe any function / method that uses the durable
+client output binding.  The durable client output binding delivers messages to the Task Hub
+that are intended to be received by orchestration and entity trigger bindings.  Specifically, a client function uses
+the orchestrator client and entity client output bindings to send messages to the Task Hub to trigger orchestrator and
+entity triggers respectively.  So, client functions are used to initiate orchestrator and entity functions.
+
+Orchestrator functions cannot be client functions.  Orchestrator and entity functions cannot be triggered directly
+in Azure Portal, you must run a client function to start them instead.  The durable client binding can also be used to
+interact with running orchestration and entity functions.
+
+### Orchestrator Functions
+Durable Functions are functions / methods that execute actions.  Example actions include: activity functions,
+sub-orchestrations, HTTP requests, and times.  There are strict requirements for how orchestrator code must be
+written.
+
+They can call all other types of Durable Functions including other orchestration functions.  Output from those calls
+can be assigned locally.  Execution is checkpointed using the event sourcing pattern at every await / yield statement;
+if a function is restarted for some reason and it runs an activity function, the Durable Task Framework (DTF) will replay
+the result of the function to avoid rerunning it.  Orchestrator code must adhere to the constraints below in order for
+replaying to work correctly.  They have an unlimited time lifespan.  Every orchestration instance is assigned a unique
+instance ID.
+
+At each orchestration checkpoint (i.e. at `yield` / `await` statements), the DTF will typically save execution history
+into storage, enqueue messages for functions the orchestrator wants to invoke, and finally enqueue messages for the
+orchestrator itself.  Each time an orchestrator is resumed after waiting for a task, it will be rerun from the start.
+The DTF will check execution history to see if that task / activity 
+
+
+#### Constraints
+
+
+### Entity Functions
+Entity Functions are functions / methods that explicitly manage state via reads and writes.  They are triggered with a
+special entity trigger.  They have no code constraints like orchestrators.
