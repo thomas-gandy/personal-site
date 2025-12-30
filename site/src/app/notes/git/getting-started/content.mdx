@@ -1,0 +1,255 @@
+import Flashcard from "../../../ui/Flashcard.tsx";
+
+<br />
+<br />
+
+## Overview
+
+Pretty much all the notes on this page come from the Pro Git book by Scott Chacon and Ben Straub, as well as from the
+git man / help pages.
+
+Git at its core is not a Version Control System (VCS) but instead a content-addressable filesystem (CAF). Typical
+filesystem structures store data at a specific location of a tree-like structure, where the address to that data is the
+path through the tree. Content-addressable filesystems store data like traditional filesystem structures, but the major
+difference is how this data is addressed. Gone are the hierarchical trees. Instead, data is addressed by a hash value,
+where the hash value is calculated from the data itself.
+
+<br />
+## Plumbing and Porcelain
+
+From a CAF, VCS's can be built. Git was primarily built around this CAF concept and so its original commands are more
+low-level, focusing less on overall VCS abstractions and more on handling the underlying CAF. The original CAF commands
+are known as plumbing commands and the user-friendly VCS commands are known as porcelain commands; porcelain commands
+generally delegate to CAF (plumbing) commands.
+
+<br />
+## Initializing Git
+
+You can initialize Git with the `git init` command in a directory. This will generally create the following filesystem
+structure in that directory
+
+```
+config  description  HEAD  hooks/  info/  objects/  refs/
+```
+
+You can also specify a directory to initialize Git into with `git init <dir-path>`. The following sub-sections will go into more detail about each entry.
+
+<br />
+## Objects
+
+When you add data to Git, it will return you a handle to that data in the form of a unique key (Git uses a SHA-1 hash on
+the contents to resolve the key value). You can use the `git hash-object` command to store data in Git's object store
+(located in `.git/objects`) and retrieve a key handle on the inserted data. The help page for this command is shown
+below.
+
+```
+GIT-HASH-OBJECT(1)
+
+NAME git-hash-object - Compute object ID and optionally creates a blob from a file
+
+SYNOPSIS git hash-object [-t <type>] [-w] [--path=<file> | --no-filters] [--stdin [--literally]] [--] <file>... git
+hash-object [-t <type>] [-w] --stdin-paths [--no-filters]
+```
+
+By default, `git hash-object` expects a filepath argument to the data to be added to the store. It can instead take data
+directly from stdin via the `--stdin` option. The `-t` option specifies what type of data is being added to the CAF.
+There are four types of data that Git expects and accepts: blob, tree, commit, and tag; the details of which will be
+gone into more detail in the sections following. By default, `git hash-object` will use type `blob` and will return the result without any
+side-effect. In order to follow through and write to the data store, supply the `-w` flag.
+
+### Blob objects
+
+Running `echo 'hello!' | git hash-object -w --stdin` returns the unique handle
+`4effa19f4f75f846c3229b9dbdbad14eff362f32` and also writes the data `hello!` to the data store. Listing the contents
+under `.git/objects` will now show a directory named `4e/`. Inside that is a file named with the remaining part of the
+hash; the hash used is SHA-1. This file contains the added data in compressed form via zlib.
+
+You can read the data in a hashed object with the `git cat-file` command. By using the `-p` flag, which will pretty-print
+the contents of the object by determining the object's type automatically, you can display the contents of the object by
+running `git cat-file -p 4effa19f4f75f846c3229b9dbdbad14eff362f32` which will output `hello!`. You can also find out the
+type of object stored with the `-t` flag. For example, `git cat-file -t 4effa19f4f75f846c3229b9dbdbad14eff362f32` will
+return `blob`.
+
+With the data now in the Git CAF, you can pretend to restore a file from the commit had you deleted it from your
+filesystem and restore it from the CAF with
+`git cat-file -p 4effa19f4f75f846c3229b9dbdbad14eff362f32 > <original-name>`.
+
+### Tree objects
+
+First, understand the problem that trees came in to solve: you want to be able to query version history for a given
+file. Start by thinking about how data in files can be identified: hash or filepath.
+
+If data is identified by hash, it will be stored at a location named with that hash. This means Git sees content in your
+working tree (directory) as only hashes. If you modify one file to be different and commit it, Git will just see a new
+hash. It won't be able to make any connection between the first hash and second hash for the file data. When it comes to
+listing the change history for a certain file at a certain filepath location, it won't be possible.
+
+If data is instead identified by filepath, assuming the path never changes, it is theoretically possible for Git to find
+all previous versions. However, where would Git store the new file? The path is already being used in the store for the
+original version. Git would have to come up with some scheme for storing different versions of the filepath. It could
+use a hierarchical scheme like `<path-to-store>/<file-path>/{1..n}`, where `{1..n}` represent snapshots of the file over
+time. It is impossible for `<file-path>` to be used as a directory and for there to exist a file at the `<file-path>/1`
+so it seems like it could work. However, renaming a file would mean it must be duplicated to the filepath in the store that
+identifies the new file's name; symlinks are not standardized across operating systems.
+
+So, in summary, when identifying files by hash, it is impossible to link any given file to previous versions. When
+identifying by filepath, it is possible to link any given file to a previous version, but only when devising a
+non-colliding naming mechanism to store versions with the same filepath and only when the filepath stays the same; it is
+not possible to link to previous versions of a file once it has been renamed. Additionally, filepath identification
+suffers from duplication during renames, as well as duplication if a file was changed and then reverted at a later date,
+unless you inefficiently check and hash all previous versions to find a match.
+
+Ideally, when using hash identification, you'd be able to associate a filename with each blob object for that file so
+that you can see all committed version of the file by doing a filename lookup given a list of tree objects. This is what tree objects allow you to do: associate a filename with a hash. They also let you store a group of files together. Together, Git trees and blobs let you store objects in a similar way to a traditional filesystem.  Trees also resolve the possible issue of two separate files swapping contents.  If hash identification was used on its own to save files A and B, then in the next version A's contents were replaced with B's and vice-versa, plain blob hashes would not be able to distinguish any change in the index.
+
+If using filepath identification instead, there isn't really a need to use trees in this way.  **The main question is how to handle renames (TODO)**.
+
+A tree object contains entries in the form `<mode> <type> <hash> <filename>`. Each entry represents either a blob or
+subtree. The filename field will be populated even for subtree entries. `<branch-name>^{tree}` specifies the tree object
+pointed to by the most recent commit on branch `<branch-name>` (i.e. it will evaluate to the hash of the tree object in
+the CAF). So, you can use it to e.g. pretty print the data in the tree object.
+
+When using Git normally, it will create tree objects when committing files in the staging (index) area. You can
+traditionally achieve this by adding untracked files with the `git add` porcelain command and then committing those
+staged files with the `git commit` porcelain command. You can also use different plumbing commands to achieve the same
+result, which the following sections demonstrate.
+
+#### Updating the index and writing a tree
+
+This first example will use `git update-index` (whose help page says
+`Register file contents in the working tree to the index`) and `git write-tree` (whose help page says
+`Create a tree object from the current index`). This method does not require any blobs to exist in the CAF before tree
+creation.
+
+Start by creating and populating a file to track like `main.go`. Add the file to the index via
+`git update-index --add main.go`; by default, it only adds files that are already being tracked in the staging area **(how
+does it know the file is already being tracked?) (TODO)**. New files must be explicitly tracked with the `--add` option. Running
+`git status` will now show `main.go` as staged in the index. When files are added to the index, they are not added to
+the CAF object store, so won't be visible in `.git/objects`.
+
+Running just `git write-tree` will take the index, create a tree object from it, and persist it to the CAF. It won't
+clear the index, so it is possible to create another tree with the exact same contents, or add / remove files to create
+a new tree with slightly modified content.
+
+#### Manually creating blob and tree objects (TODO)
+
+#### Reading trees into the index
+
+A tree represents a set of files and/or subtrees; essentially, an abstraction of a traditional filesystem / the root or
+subtree of a filesystem tree. A tree stored in the CAF can be read into (or back into) the index with the
+`git read-tree` command. When this occurs, no files in the working tree will be affected. `git read-tree` can also be
+used to perform merges and fast-forwards; it uses the staging area as its workplace to do this which is why it must be
+clear beforehand. If the merge fails in the staging area, it won't write the changes to the working tree.
+
+### Commit objects
+
+Trees solve the problem of not knowing what hashed objects correspond to what files, as they enable associating hashes in
+the object store with filepaths in the project repository.  However, due to the way tree objects are stored in the CAF, you'd have to remember the hash of every tree object that referenced the blob object associated with the file you want to perform a version lookup for.  Tree objects by themselves do not provide a means to 'chain' to previous tree objects.  Commit objects are associated with a tree object and can refer to previous commits.
+
+**(TODO)**: When creating new trees for new commits, do they have to store all blob references again or do they just refer to a previous tree like deltas?  If refering to previous, does that mean to restore at a certain point, Git would have to walk back the entire chain to generate the result?  That would seem innefficient.
+
+**(TODO)**: Purpose of commit objects when there seems to be a one-to-one mapping between commits and trees?
+
+Use the `git commit-tree <tree-hash>` command to create a commit object from a tree object; this will return the hash of the created commit object.  You can then commit another tree with `commit-tree` and specify the parent / prior commit with the `-p` flag like so `git commit-tree <tree-hash> -p <parent-commit-hash>`.  You can then use the `git log [<commit-hash>]` command to show the history of commits starting from `<commit-hash>`.  If you ran `git log` you would get an error saying
+```
+fatal: your current branch '...' does not have any commits yet.
+```
+
+### Tag objects
+It is easier to understand tags after reading about references and HEAD below, so this section will continue after that, but is here for completeness.
+
+## Storing objects in the CAF
+
+## References
+
+In the commit objects section, it stated a disadvantage of trees is that you need to remember their hash in order to read the contents back into the working tree.  It used commit objects to act as handles on the trees, but just shifted the problem of needing to remember the hash for the tree to needing to remember the hash of the commit when wanting to read back into the working tree or use `git log`.
+
+Git references (refs) solve this problem.  Refs are files with a simple name that store the hash.  They are located in the `.git/refs/` directory.  You can create a ref with the name of e.g. `foo` or `master` with `echo <hash> > .git/refs/heads/foo`.  Doing so, then running something like `git log foo`, would show the commit history for the commit beginning with `<hash>`.  However, it is instead recommended to create refs with the `git update-ref` command rather than with `echo` and pipes; for example, `git update-ref [foo | refs/heads/foo] <hash>`.
+
+Refs are what Git uses to implement its branching concept, where given project files can have different content in parallel to the same file in other branches (like a parallel universe); useful for developing different features that can then be merged at a later date when ready.
+
+So, in summary, references (specifically head references) simplify the issue of needing to remember a commit hash and instead allow you to use a more human-memorable name.  It has gone from having to remember the tree hash, then to commit hash, now to a ref name, in order to identify a specific tree object.
+
+### HEAD
+
+The HEAD file normally holds the ref name (i.e. it is essentially a symbolic link) you are currently using (i.e. ref and branch are synonomous).  However, it can also refer directly to an object (tag, commit, or remote ref) if that object is checked out.  Refs that can refer to other refs are called symbolic refs; they can be managed with the `git symbolic-ref` command.
+```
+GIT-SYMBOLIC-REF(1)
+
+NAME
+       git-symbolic-ref - Read, modify and delete symbolic refs
+
+SYNOPSIS
+       git symbolic-ref [-m <reason>] <name> <ref>
+       git symbolic-ref [-q] [--short] [--no-recurse] <name>
+       git symbolic-ref --delete [-q] <name>
+```
+Read the value of a symbolic ref with `git symbolic-ref <sym-ref-name>`.  Create or update a symbolic ref with `git symbolic-ref <sym-ref-name> <ref>`; `<ref>` must be in the format of `refs/...` so it is always good practice to specify full paths to refs rather than just the name of a ref inside `refs/heads`.
+
+### Tag objects (continued)
+
+A (annotated) tag is similar to a commit in that it contains: a tagger (author), date, message, and pointer.  However, a tag's pointer is to a commit rather than to a tree, and it doesn't contain a 'previous' pointer like a commit can contain to point to a previous commit.  In this sense, a tag is essentially just like a ref except from it's value will never change, and can be found in `.git/refs/heads`.  It could be thought of as a branch that can never be committed to, hence will never be changed.
+
+There are two types of tags: lightweight and annotated.  Lightweight tags are most similar to traditional refs in that a file for the tag (the value of which acts as a pointer) is created at `.git/refs/tags/<tag-name>` with the value in the file being the commit the tag is pointing to.  Lightweight tags are nothing more than a ref that doesn't change and is in the `refs/tags/` directory instead of `refs/heads/`.  Annotated tags are a superset of lightweight tags and contain additional information like a message, date and author/tagger.  Annotated tags are created as an object in the CAF and the tag ref points to this tag object rather than a commit object.
+
+When referencing a tag later (e.g. when checking out a tag), Git can lookup the type of object in the tag ref file to see if it should treat it as a commit, tag or any other Git object.
+
+You can create a lightweight tag with the `git update-ref` command like used in the references section above, or with the `git tag` command which can be used more generally to manage tags.  Annotated tags can't be created with `update-ref`, so `git tag` should be used.  Given a commit hash, create an annotated tag with `git tag -a -m <message> <tag-name> <commit-hash>`.  `git cat-file` can be used with the `-p` flag to pretty print an object given its hash and Git will work out its type.  Alternatively, you can specify the type of the object you want printed with `git cat-file <type> <tag-hash>`.  This is useful when using annotated tags as the provided hash can be a tag object, yet you can specify the type of the object the tag refers to and Git will derefence the hash to the type specified.  It will fail if the type doesn't match the object.
+
+### Remotes
+
+Remotes are a third type of reference (in addition to heads and tags).  Refs (branches) of remote repositories are stored in `.git/refs/remotes/`.  They are only supposed to be used as read-only.  You'd never locally commit with `HEAD` pointing to a ref in `remotes/` such that a commit would then attempt to update the remote ref pointed to by `HEAD` (i.e. it is not possible for `HEAD` to reference a remote ref).  Remote refs are only supposed to reflect the last known state of the remote repository.
+
+Remote refs can be updated when pushing local data / refs to the remote, and the remote responding with its up-to-date state of which is then written.
+
+## Packfiles
+
+Initially, Git stores objects in loose format; multiple commits of the same file will be stored separately.  Committing a new file `large.txt`, displaying the tree with `git cat-file -p HEAD^{tree}`, editing the file, committing it again, then displaying the tip tree will show that the same file is stored as two separate objects.  Use `git gc` to perform packing in this case; when using git normally (i.e. via porcelain commands), Git will periodically run `git gc` for you when it deems appropriate.  The non-dangling object files in `.git/objects` will be deleted and placed into a packfile.
+
+A packfile is a binary file that combines the contents of all objects removed from the `.git/objects` filesystem.  Packfiles are located in `.git/objects/pack/`, which contains two files per 'pack': an index file and the binary packfile itself.  The index file is used to index into the packfile's combined content.  Use `git verify-pack <index-file>` to read the packfile's index file and verify it alongside its corresponding pack file; the `-v` verbose option shows a list of objects in the packfile.  Non-deltafied objects will be formatted like
+```
+SHA-1 type size size-in-packfile offset-in-packfile
+```
+and deltafied objects will be formatted like
+```
+SHA-1 type size size-in-packfile offset-in-packfile depth base-SHA-1
+```
+where the deltafied object stores the hash of the next version instead of the previous.  The most recent version stores the full object contents (and doesn't refer to a base hash) and prior versions store 'reverse' deltas; these 'reverse' deltas are just deltas at the end of the day and are applied normally.  It is more likely you will want the most recent version of a file, so typically Git will make the most recent version the 'base' of deltafication.
+
+Git looks for similarly named and sized files to decide to deltafy an object.
+
+## Refspec
+
+The `.git/config` file contains entries for things like remotes.  A remotes section will contain a URL and refspec.  The URL stores the web address of the remote repository.  The refspec specifies a source and destination.  For fetches, the data flow is from the remote machine to your local machine, so source is the remote machine and destination is your local machine.  Source represents the filesystem location on the remote where it stores its refs.  Destination is the local location where refs are stored for the corresponding remote source refs.  For pushes, the data flow is reversed, so source is the local location and destination is the remote location.  By default when adding a remote, all refs are taken from the remote's `refs/heads/` and written to `refs/remotes/origin/` locally.
+
+Refspecs for fetching are in the form `fetch = [+]<src>:<dst>`.  Globs can be used in `<src>` and `<dst>` to e.g. match all same-named refs in (possibly different) directories between `<src>` and `<dst>`.  There can be multiple `fetch = <...>` entries for a given remote.  `+` allows non-fast-forward updates (e.g. updates with merges).  Without `+` in these cases, the specific fetch entry would fail.  Refspecs can be passed to the `git fetch` command for specific one-off fetches instead of having to fetch every single new remote ref; e.g. `git fetch origin <refspec> [<refspec>] [...]`.  Refspecs for pushing have similar rules, but are specified as `push = [+]<src>:<dst>`.
+
+It isn't the case that source represents the remote refs at `.git/refs/remotes` and destination represents the local refs at `.git/refs/heads` (i.e. tracking); this is done separately by associating local refs in `heads` to remote refs in `remotes`.  Fetch refspecs specify ref paths in the remote (`refs/heads/`) and the local machines's remote ref locations (`refs/remotes`).  Push refspecs specify the local ref paths in `refs/heads` and the remote's ref paths (`refs/heads`).  In this sense, `refs/remotes` are solely used to remember the most recent synchronised state between local and remote, and is not used at all for pushing.  Fetching does not have an affect on local refs, only on the remote refs tracking the last known state of the remote.
+
+Refs can be namespaced (i.e. put in custom directories inside e.g. `.git/refs/heads`).  For example, by putting certain refs in a directory like `.git/refs/heads/foo/`.
+
+Refspecs can be used to delete branches from a remote.  To delete branch (ref) `foo`, use `git push origin :foo`.  Because source is empty, Git interprets it as synchronising / pushing nothing to the remote ref, which also makes it nothing, essentially deleting it.  Alternatively you can use the newer `git push origin --delete foo` command.
+
+### Rename a local and remote ref with incorrect capitalisation (TODO)
+
+## Transfer protocols (TODO)
+
+## Maintenance and data recovery (TODO)
+
+The `git gc` commands consolidates objects into packfiles, consolidates packfiles, removes dangling objects, and packs refs (e.g. in `tags/` or `heads/`) into `.git/packed-refs` (the ref will be removed from it directory).  For packed refs, `heads` will be placed in a format like so
+```
+<commit-hash> refs/heads/<path>
+...
+```
+and `tags` will placed in the same file in a format like so
+```
+<commit-hash> refs/tags/<path>     # for lightweight tags
+<tag-hash> refs/tags/<path>        # for annotated tags
+^<commit-hash-tag-object-points-to>
+```
+
+Updated refs will be written to `refs/`, not `packed-refs`.  When getting a hash for a  ref, Git checks in `refs` first.
+
+If you accidentally hard reset a branch and lose a section of commits, or you deleted a ref, you can use `git reflog` to see the history of sym-refs and refs (tips of branches).  By default, it shows the reflog for the `HEAD` sym-ref.  Use `git reflog <ref>` to show the reflog for any given ref, including symbolic refs.  If refs are edited manually without e.g. `update-ref` or `checkout`, they wouldn't be shown in the reflog.  To show the object log for each commit **(TODO: I assume only commits object hashes will be shown in the reflog?)** in the reflog, use `git log --walk-reflogs` or `git log -g` for short.
+
+If the reflog isn't available, you can try and use `git fsck`.
