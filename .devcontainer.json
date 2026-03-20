@@ -4,6 +4,9 @@
   "postAttachCommand": {
     "install-npm-packages": "npm --prefix site install"
   },
+  "postCreateCommand": {
+    "install-claude-code": "curl -fsSL https://claude.ai/install.sh | bash"
+  },
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "23.11"
