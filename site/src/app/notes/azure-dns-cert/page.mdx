@@ -1,0 +1,143 @@
+import NotePage from '@/src/app/ui/NotePage'
+
+export default ({ children }) => (
+  <NotePage title="Azure DNS" highlight="Certificate Management">
+    {children}
+  </NotePage>
+)
+
+I go through certificate creation using two separate methods. First with Azure App Service's Managed Certificates, and secondly with Azure Application Gateway using Key Vault certificates. The Application Gateway method is useful as it can be a TLS termination point so HTTP can be used behind it. A lot of what I've noted down here comes from the official Azure documentation for [App Service](https://docs.azure.cn/en-us/app-service/), [Application Gateway](https://learn.microsoft.com/en-us/azure/application-gateway/) and [Public DNS Zone](https://learn.microsoft.com/en-us/azure/dns/dns-zones-records), as well as from the [DNS RFC](https://www.rfc-editor.org/rfc/rfc1035.html).
+
+## App Service Managed Certificates
+
+Managed Certificates require the use of Azure Public DNS Zones. Managed Certificates are bound to a domain name provided by an Azure Public DNS Zone. You should understand Azure Public DNS Zones before understanding how Managed Certificates work.
+
+### Azure Public DNS Zones
+
+Your domain registrar will delegate its requests to the Azure Public DNS Zone hosting service through a process known as DNS zone delegation. As such, you should understand the difference between a registrar and hosting service, as well as what DNS zone delegation is, before understanding how Azure Public DNS Zones work.
+
+#### Registrar
+
+A registrar allows you to purchase ownership over a domain. Domains are heirarchical. The root domain is referenced simply as `.`. Child domains underneath the root domain are called top-level domains. Examples of top level domains include `com`, `uk`, and `org`. Underneath the top-level domains are the second-level domains. Examples of second-level domains are `co` (producing e.g. `co.uk`), and `org`. Notice some second-level domains have the same name as some top-level domains. This hierarchy then continues. Chained together, these domain names form a domain (e.g. `co.uk` or `app.co.uk`).
+
+Typically, the `.` representing the root domain is not typed out. However, if you are creating DNS records in a hosting service (described below) then dependening on the hosting service, you may be told to add a trailing `.` to your record.
+
+By purchasing a domain from a registrar, you legally own that domain and any subdomain created from it. However, aside from the legal aspect, nothing practically useful occurs from the purchase. To have practical value, you need a hosting service to create DNS records for the domain so it can point to other machines.
+
+#### Hosting Service
+
+Every single fully-qualified domain in a DNS hierarchy that you may or may not own exists as a separate 'zone'. For example, `app.co.uk` could be the name of a DNS zone. Not every domain name forms a DNS zone. Whilst it is true that the root domain has a DNS zone and so will the top-level domains, a second-level domain name in isolation will not form a DNS zone (e.g. just `co`). Chained together up to the root domain, it can be uniquely identified as e.g. `co.uk`, so can be represented with a DNS zone. A DNS zone is hosted on a server and simply contains a collection of records. The organisation that provides this server is known as a DNS hosting service.
+
+Example records a DNS zone may contain are records pointing to subdomains of the current domain and apex records to identify the IPv4/6 address of the intended server.
+
+#### DNS Zone Delegation
+
+To understand DNS Zone Delegation, you must first understand the two different types of DNS servers: authorative and recursive.
+
+##### Authorative
+
+Authorative DNS servers are what host the DNS zones. They store recordsets. They have the ability to answer any queries something may have about that zone. For example, if something wants to get the IP address for a domain represented by that zone.
+
+##### Recursive
+
+Recursive DNS servers do not host DNS zones at all. They cannot provide direct answers to questions such as 'what is the IP for this domain?'. Instead, they call authorative servers to perform this task. Azure does not provide recursive DNS servers for end users to create.
+
+##### How authorative and recursive servers work together
+
+When a browser is asked to load the page for a site like `app.company.com` it must make a request to a DNS server to fetch the IP address of the intended machine; the browser itself cannot possibly hold and constantly update every DNS recordset that every DNS zone contains. Imagine trying to globally update every single browser on earth when you change a DNS record in your hosting service.
+
+Your browser makes a request to a special server known as a recursive DNS server. This server will then begin the DNS lookup and delegation process to authorative DNS servers, starting with the root authorative servers. An authorative server makes a delegation by returning a special response to the recursive DNS server. Every single time a recursive server recieves a delegation from an authorative server, it will then make a new request to the delegated server. This all happens opaquely from the browser's perspective, so it never needs to be aware of this process. The advantage of this happening on a dedicated recursive server rather than on the client browser itself is that DNS can be updated centrally in one place without needing to worry about out-of-sync client browser implementations.
+
+An authorative server will know which child authoritive server to delegate to upon a request from a recursive server due to Name Server (NS) records in the authorative server. For example, the root authoritive server would have NS records for the top level domains (e.g. `com.` and `uk.`). Remember that the trailing `.` represents the root domain itself and is not just a separator between names.
+
+##### DNS Zone Delegation
+
+In order to make Azure act as the hosting service for your DNS zone purchased from an external registrar, you must create a Public DNS Zone in Azure and
+
+Often, organisations act as both a registrar and a hosting service. Well known ones include
+
+- Cloudflare
+- Mythic Beasts
+
+Azure Public DNS does not currently support purchasing domain names. This means they aren't a domain registrar. It is, however, a hosting service. You are able to use Azure DNS servers as hosting for your DNS records. This is really useful for a few different reasons.
+
+- Use the same IaC to automate compute resources and DNS records
+- Use Azure DNS IaC if your current provider has a poor API or no provider
+- Use Azure DNS if you currently own a domain but have no other hosting service
+
+### Back to managed certificates
+
+I wanted to focus on setting up certificates for App Service and any slots it may have. For example, you may have a development and production slot that should be accessible at `dev.app.company.com` and `app.company.com` respectively. It is important to automate the process of certificate creation and rotation so that you do not need to keep manually rotating them every month or two before they expire. I automate certificate creation with Terraform, and Azure Managed Certificates takes care of the rotation. Unfortunately, Azure has some issues with automating the creation of slot certificates which I will get into at the end of the section where I will go through some alternative solutions.
+
+The Terraform below will create the App Service Plan and App Service. It will also create two Azure Public DNS Zones. One will be for `app.company.com`
+
+Before showing the Terraform code to configure a managed certificate for an App Service, I'll just go through the high level concepts of what must be done to have HTTPS for a custom domain called `app.company.com` set up for an App Service site.
+
+First, the App Service Plan and App Service itself must be created. Azure App Services come preconfigured with an Azure domain name. For example, `app-site.azurewebsites.net`. This is nicer than an IP address as Azure is free to change the underlying address whilst you still see the same DNS address.
+
+Second, you will need to create a DNS entry in our provider for `app.company.com` to point to this Azure domain name. Specifically, we will need to create a CNAME entry. A CNAME entry stands for Canonical Name. Rather than having a DNS A record (known as Apex) entry which maps a domain name to an IPv4 address, a CNAME entry maps one domain name to another.
+
+The Azure Terraform provider exposes resources for App Service, App Service Slots, Managed Certificates and DNS records. The below shows some Terraform HCL code to deploy an App Service with managed certificates. Irrelevant configuration has been cut out with `...`.
+
+The first step is to create the App Service.
+
+```hcl
+resource "azurerm_service_plan" "plan" {
+  name                = "asp"
+  os_type             = "Linux"
+
+  ...
+}
+
+resource "azurerm_linux_web_app" "site" {
+  name                = "app-site"
+  service_plan_id     = azurerm_service_plan.plan.id
+
+  ...
+}
+```
+
+Now that you have access to the Azure generated domain name, you can create a CNAME record pointing to it. However, before you can do that you need to make sure you create a [Public DNS Zone](https://learn.microsoft.com/en-us/azure/dns/dns-zones-records). A Public DNS zone in Azure
+
+```hcl
+resource "azurerm_dns_cname_record" "site" {
+  name                = "app.company.com"
+  zone_name           = azurerm_dns_zone.dns.name
+  resource_group_name = azurerm_resource_group.app_service_plan.name
+  ttl                 = 300
+  record              = azurerm_linux_web_app.site.default_hostname
+}
+```
+
+```hcl
+resource "azurerm_dns_txt_record" "site" {
+  name                = "asuid.gpt.alloyed.com"
+  zone_name           = azurerm_dns_zone.dns.name
+  resource_group_name = azurerm_resource_group.app_service_plan.name
+  ttl                 = 300
+
+  record {
+    value = azurerm_linux_web_app.site.custom_domain_verification_id
+  }
+}
+
+resource "azurerm_app_service_custom_hostname_binding" "site" {
+  hostname            = azurerm_dns_cname_record.site.zone_name
+  app_service_name    = azurerm_linux_web_app.site.name
+  resource_group_name = azurerm_resource_group.app_service_plan.name
+}
+
+resource "azurerm_app_service_managed_certificate" "site" {
+  custom_hostname_binding_id = azurerm_app_service_custom_hostname_binding.site.id
+}
+
+resource "azurerm_app_service_certificate_binding" "site" {
+  hostname_binding_id = azurerm_app_service_custom_hostname_binding.site.id
+  certificate_id      = azurerm_app_service_managed_certificate.site.id
+  ssl_state           = "SniEnabled"
+}
+```
+
+## Application Gateway Certificates
+
+Azure Application Gateway is a layer 7 load balancer and reverse proxy. It supports reading in certificates from Azure Key Vault. It will poll key vault (at the time of writing) every 4 hours to check if a new certificate has been uploaded. If a new certificate is found, it will be automatically rotated in.

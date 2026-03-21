@@ -1,3 +1,11 @@
+import NotePage from '@/src/app/ui/NotePage'
+
+export default ({ children }) => (
+  <NotePage title="RFC 791" highlight="IPv4">
+    {children}
+  </NotePage>
+)
+
 # Resources used
 
 - [RFC 790 Assigned Numbers]()
@@ -180,7 +188,7 @@ Strict Source and Record Route has an `option-type` value of 137.  It is similar
 4) Elaborate more on what an option class is actually for and what debugging / measurement actually means
 5) Does Record Route include the source and destination, or just the intermediaries?
 6) Address this misunderstanding: The datagram could arrive at its destination before completing the route data.  This could be because it coincidentally arrived there on its way to the next source address or the source address in route data was coincidentally or otherwise the destination address.  In either case, the pointer into route data .  If this occurs, the intended overall destination address is swapped with the address in route data that the pointer points to.  Then, the destination's internet module will ..... When the datagram has gone through all specified routes, all further routing is based solely on the original destination address.
-7) Go into more detail on why you would want to be able to treat a single physical host as several distinct hosts, in other words, have multiple IP's bound to a single interface.  A beginner question may be, why would that need to be, as 
+7) Go into more detail on why you would want to be able to treat a single physical host as several distinct hosts, in other words, have multiple IP's bound to a single interface.  A beginner question may be, why would that need to be, as
 
 I assume anywhere NAT is done, it must keep a table mapping the original source address to the  so that when a receiver sends a message back to a sender's source address it is mapped correctly.  No, this cannot be correct, as the original source address might already be assigned in the destination's network.  So, at NAT, the source address in the datagram will need to be replaced, being assigned / allocated with a different IP that is currently free in the destination's network.  The source address cannot be set to the destination network's internal gateway IP as if multiple originating hosts were sending data into the network to two or the same destination host(s), when the destination hosts try to send a message back to their respective originating hosts, the gateway would just see its IP and wouldn't be able to differentiate which datagrams should be forwarded back to which originating host.
 

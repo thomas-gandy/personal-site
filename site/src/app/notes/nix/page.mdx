@@ -1,0 +1,373 @@
+import NotePage from '@/src/app/ui/NotePage'
+import { SimpleGrid, Stack, Title, Code } from "@mantine/core"
+
+export default ({ children }) => (
+  <NotePage title="Getting started with the" highlight="Nix" after="language" description="Notes on an introduction to Nix syntax and language features.">
+    {children}
+  </NotePage>
+)
+
+## How to run Nix code
+
+You can experiment with Nix expressions in a Read Evaluate Print Loop (REPL) environment with the `nix repl` command. If you want to write a reproducible Nix file, you can put the Nix code into a file with a `.nix` extension. Then, you can evaluate that file with the `nix-instantiate --eval <file>` command. If your file is named `default.nix`, then you only need to run `nix-instantiate --eval`.
+
+## Entering a Nix environment
+
+You can manually enter a Nix shell environment with specified packages by using the `nix-shell [-p | --packages] <space-separated-package-names>` command.
+
+## Difference between Nix and the Nix language
+
+## The Nix Language
+
+Nix is a functional (like Haskell or F#), lazy (like me), dynamically-typed (like Python or JavaScript), and domain-specific language (like SQL or HCL for Terraform).
+
+### Attribute sets
+
+An attribute set is a collection of name-value pairs; it has behaviour like a dictionary. The structure of an attribute set is similar to JSON; when the attribute set doesn't contain a function, it uses semi-colons to separate between attributes rather than a comma, an equals (=) sign rather than a colon (:) to assign a value to an attribute, attribute names generally don't need speechmarks, and list items are separated with whitespace. Keys must be unique.
+
+If there is a nested attribute in an attribute set, it can be specified with an attribute path (as below) rather than having to type out the entire nested brace syntax.
+
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>Without attribute path</Title>
+    <Code block>{`{
+  a = {
+    b = {
+      c = 1;
+      d = 2;
+    };
+  };
+}`}</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>With attribute path</Title>
+    <Code block>{`{
+    a.b.c = 1; a.b.d = 2;
+}
+
+or, a combination of nested and path
+
+{
+    a.b = { c = 1; d = 2; };
+}`}</Code>
+  </Stack>
+</SimpleGrid>
+
+Attribute set values can be accessed with dot notation.
+
+### Recursive attribute sets
+
+Recursive attribute sets allow attributes within a set to access other attributes in the same set. Any cycles will result in an infinite recursion error. It does not matter what order attributes are defined in, even if an attribute that depends on another is defined before the attribute it references. In the example below, the nested attribute `a.b.c` will be set to `2` and would fail in a normal attribute set.
+
+<Code block>{`rec {
+    a.b = {
+        c = a.b.d; d = 2;
+    };
+}`}</Code>
+
+The value result of a recursive attribute set is an attribute set
+
+<Code block>{`{ a = { b = { c = 2; d = 2; }; }; }`}</Code>
+
+### `let` expression binding
+
+Using `let` expressions define a short, local scoped block where variables can be defined. The let expression takes the form of `let ... in ...`. Assignment is done in the first `...` block. The second `...` block is the scope where it is valid for expressions to access the variables.
+
+Similar to recursive attribute sets, assignments within the let block can reference other assignments in the same block. It doesn't matter what order the assignments are performed, as long as there is no cycle. However, unlike recursive attribute sets, expressions after the `in` keyword are not confined to producing an attribute set value.
+
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>Producing an attribute set</Title>
+    <Code block>{`let
+    a = { b = { c = { d = 1; }; }; };
+    e = a.b;
+in
+    e.c`}</Code>
+    <Code block>{`{ d = 1; }`}</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>Producing a list</Title>
+    <Code block>{`let
+    b = a;
+    a = 3;
+in
+    [a b]`}</Code>
+    <Code block>{`[ 3 3 ]`}</Code>
+  </Stack>
+</SimpleGrid>
+
+Let expressions can be nested like so
+
+<Code block>{`let
+  a = 1;
+  b =
+    let
+      c = a + 1;
+    in
+      c;
+in b`}</Code>
+
+### `with` expression
+
+The `with ...` expression is like a C++ `using namespace` expression for an attribute set which means you don't have to keep referencing ancestors of an attribute in a nested attribute set.
+
+<Code block>{`let a = { b = { c = { d = 3; }; }; }; in with a.b; [ c c.d ]`}</Code>
+<Code block>{`[ { d = 3; } 3 ]`}</Code>
+
+The attributes made available with the `with` expression are only in-scope for the expression immediately following the semicolon (;) of the `with` expression. So, the below Nix code would not work, as `x` is no longer accessible in the assignment to `c`.
+
+<Code block>{`let
+  a = {
+    x = 1;
+    y = 2;
+    z = 3;
+  };
+in
+{
+  b = with a; [ x y z ];
+  c = x;
+}`}</Code>
+
+Due to the fact that `with` is an expression, it can be placed anywhere where a value can be returned. That means they are not limited to just the `in` block of a `let` expression. They can also be part of an assignment in the `let` block as shown below.
+
+<Code block>{`let
+  a = {
+    b = 1;
+  };
+  c = with a; [ b ];
+in c`}</Code>
+<Code block>1</Code>
+
+### `inherit` shorthand
+
+The `inherit ...` shorthand allows you to extract an assignment from some scope (whether that be the current scope or above) and assign it to an assignment in the current scope that has the same name (i.e. just the immediate name of the value in the outer scope and not its pathname). It does not extract assignments from `in` blocks as it is illegal to have assignments in `in` blocks so wouldn't make sense in the first place. It is essentially just syntatical sugar and the same effect can be achieved without the keyword by copying values across. The `inherit` keyword can be used inside the block of a `let` or the block of an `in`. If `inherit` is used in a `in` block, it *must* be inside of attribute set braces (more on deriving where `inherit` can be used in a sec).
+
+I'll go through a few different use cases where using `inherit` is useful. The first (admittedly contrived, but most fundamental) example below shows how you can use `inherit` to avoid needing to redefine an outer `let` block variable to reference it inside a nested `let` block.
+
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>With inherit</Title>
+    <Code block>{`let
+  a = 1;
+  b =
+    let
+      inherit a;
+    in
+      a + 1;
+in b`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>Without inherit</Title>
+    <Code block>{`let
+  a = 1;
+  b =
+    let
+      c = a; # 'a' is copied into scope
+    in
+      c + 1;
+in b`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
+
+It is a contrived example because in reality you could just access `a` directly from inside the nested `in` block without needing to redefine the value in the nested `let` block. However, it does let you see how `inherit` can be used in its most simple form to bring an assignment into a nested scope (and in this case meaning you don't have to copy `a` across to a new nested assignment). Additionally, it gives light to how `inherit` is just syntatical sugar and is essentially just a macro.
+
+The previous example showed how it is legal to `inherit` atomically typed assignments into nested scopes. The next example shows how you can `inherit` assigned values from within an attribute set.
+
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>Single inheritance</Title>
+    <Code block>{`let
+  g = {
+    h = 3;
+    i = 4;
+  };
+  a = let
+    b = {
+      c = 1;
+    };
+    inherit g;
+  in g;
+in a`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>Nested inheritance</Title>
+    <Code block>{`let
+  g = {
+    h = 3;
+    i = {
+      j = { k = 4; };
+      l = 5;
+    };
+  };
+  a = let
+    b = { c = 1; };
+    inherit (g.i) j;
+  in j;
+in a`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
+
+Note how when using `inherit` to extract nested properties from an attribute set you can use simple syntax like `inherit g;` for non-nested inheritance to essentially bring the entirety of `g` into scope for the `let` expression for the `a` assignment. Alternatively, if you want to extract out certain properties of a previously defined attribute set, you can use nested inheritance by specifying the path to the parent of the property you want to extract. This parent property is not brought into the current `inherit` scope, but you can then specify multiple properties inside of the parent attribute set to bring into the current scope simply by space seprated names.
+
+##### So, where can I use `inherit` then?
+
+`inherit` is not an expression; it does not produce a value, it only causes an assignment to be made. Therefore, it is not legal for an `inherit` to exist at the top level of an `in` block (which is only for expression evaluation, not assignment) unless it is part of an attribute set within an `in` block. Assignments are legal in `let` blocks so `inherit` statements are allowed at the top level there.
+
+It is illegal to use `inherit` in a non attribute set assignment.
+
+<Code block>{`let
+  g = { h = 3; i = 4; };
+  a = let
+    b = { c = 1; };
+    d = inherit g; # illegal
+  in b;
+in a`}</Code>
+
+##### How does `inherit` differ to a `with` expression?
+
+`with` only works when bringing attributes from a set temporarily into scope for the duration of the single expression immediately following the semicolon of the initial `with` section. `inherit` brings across assignments (whether that be attribute sets or another type) permanently into scope for the duration of said scope. When using `inherit`, assignments brought into the new scope are forced to have the same name. If you want to extract some attribute from a set and assign it in the new scope with a different name, you are best to use `with`.
+
+The below examples show how `with` and `inherit` can be used individually in a `let` expression to achieve the same result.
+
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>`with` expression</Title>
+    <Code block>{`let
+  a = {
+    b = { c = 1; };
+  };
+  d = let
+    e = with a; b;
+  in e;
+in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>`inherit` statement</Title>
+    <Code block>{`let
+  a = {
+    b = { c = 1; };
+  };
+  d = let
+    inherit (a) b;
+  in b;
+in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
+
+Below is yet another example that is similar but with more nesting.
+
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>`with` expression</Title>
+    <Code block>{`let
+  a = {
+    b = {
+      c = { z = 1; };
+    };
+  };
+  d = let
+    e = with a.b; c;
+  in e;
+in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>`inherit` statement</Title>
+    <Code block>{`let
+  a = {
+    b = {
+      c = { z = 1; };
+    };
+  };
+  d = let
+    inherit (a.b) c;
+  in c;
+in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
+
+Notice how you can drill down to specify the parent attribute set for both `with` and `inherit` with dot-notation, and then specify which attributes to make available in the immediate expression (in the case of `with`) and the overall nested scope (in the case of `inherit`).
+
+### String interpolation
+
+Only values of expressions that can be represented by character strings are able to be used in string interpolation. An interpolation expression can look like `"Hello, ${'${<expression>}'}!"`. Nested interpolation strings are possible but not recommended. If an expression has a dollar sign before it but no quotations then it is not an interpolated string and is usually denoting a shell variable.
+
+### Indented strings
+
+Indented strings in Nix are acheived with double single quotes on either side. Nix will find the line with the smallest number of spaces at the start and strip that many spaces from the start of the other lines.
+
+### File system paths
+
+Same as Bash; `.` for local, `..` for parent, absolute and relative paths are the same.
+
+### Lookup paths
+
+An identifier that expands to a filesystem path; for example, the literal value `<hello>`. It depends on the value of `builtins.nixpath` or the `NIX_PATH` environment variable, which is a configuration setting specifying a list of paths in the form `foo=/custom/path:bar=/another/path`. So, given the identifier `hello` above, it would resolve to `/my/baz` given the following nixpath `foo=/foo:hello:/my/baz`. You can specify subpaths of the lookup path like `<hello/goodbye>`, which will expand to the value of `/my/baz/goodbye`.
+
+The Nix documentation says to try and avoid lookup paths in practice.
+
+### Functions
+
+Nix functions have no names (so are known as lambdas) and always take exactly one argument. They are another way of assigning names to values (assignments), alongside attribute sets and `let` expressions. A function's body must contain exactly one expression.
+
+An example of a single argument function definition is `x: x + 1`. Although functions take only one argument, it is possible to pass multiple by nesting, essentially creating nested scopes so that a nested function can read arguments declared in a higher function scope; for example, `x: y: x + y`. This is known as currying; the definition of which is translating a function that takes multiple arguments into a sequence of families of functions, each taking a single argument.
+
+An example with an attribute set argument is `{ a, b }: a + b`; leaving out or specifying additional attributes in the set argument is an error. Default values can be provided for attributes in a set like so `{ a, b ? 5 }: a + b`; all attributes can have default values. You can specify a set is allowed more attributes than specified like so `{ a, b ? 5, ...}: a + b`. Sets can be named like so `args@{ a, b ? 5 }: a + b + args.c`; this is useful if you want to access an attribute in the set argument that was not explicitly specified, made possible with the `...` keyword.
+
+Functions can be assigned to names like so `let f = x: x + 1 in f`. They can be called by specifying the argument at the end like `let f = x: x + 1; in f 1` or `(x: x + 1) 1`. When two separate expressions around a space are encountered like so `x: x + 1 1`, Nix interprets it as `x: ((x + 1) 1)`, as the plus operator has higher precedence than the space operator (otherwise it would be treated as `(x: (x + (1 1)))`, which still wouldn't work). It then tries to call `(x + 1)` with an argument of `1` which fails as the expression `(x + 1)` produces a value that is not a callable lambda. To solve this, wrap parentheses around the entire expression you wish to be treated as a function like so `(x: x + 1) 1`, which will produce a value of `2`.
+
+### Function libraries
+
+There are two common libraries: `builtins` and `pkgs.lib`.
+
+`builtins` are also known as primitive operations or primops and are implemented in C++ as part of the Nix interpreter; an example is the expression `builtins.toString 22`, which returns the value `"22"`. Typically, to use one of the functions provided in `builtins`, you must prefix it with `builtins.`. However, there is one builtin, `import`, that is available at the top level. `import` takes a filepath to a Nix file and evaluates then returns the contained expression. If the path is a directory, it looks for a `default.nix` file; if this file is not found, an error occurs. Imported expressions that are lambdas can be applied immediately like so `import <your-path> <argument>`.
+
+The `nixpkgs` code repository contains a vast number of functions available inside an attribute set named `lib`. These functions are written in the Nix language and are not written in C++. To access `lib`, you must first import the `nixpkg`, which can be achieved using the `<nixpkg>` lookup path such as
+
+<Code block>{`let
+  pkgs = import <nixpkgs> {}
+in
+  pkgs.lib.strings.toUpper "this is an uppercase string"`}</Code>
+
+Some of the functions in `pkgs.lib` are equivalent to the `builtins` of the same name for historical reasons. It is not recommended to import using the `<nixpkg>` lookup path directly as it is not reproducible and uses whatever version of the repository is available on the host machine. It is important to ensure the specific version is pinned, which can be achieved by specifying and fetching the specific gzipped tar file like so (as per the snippet from the Nix docs).
+
+<Code block>{`let
+  nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/archive/06278c77b5d162e62df170fec307e83f1812d94b.tar.gz";
+  pkgs = import nixpkgs {};
+in
+pkgs.lib.strings.toUpper "always pin your sources"`}</Code>
+
+### Paths
+
+When paths are specified as a value in string interpolation (for example, `"${'${./data}'}"` or `"${'${<nixpkgs>}'}"`), the contents of the file or directory are hashed and placed into the Nix store (a location in the filesystem) as a side effect of the expression. The evaluated interpolated string expression evaluates to the Nix store path that the file was placed at in the format `/nix/store/<hash>-<file-name>`; the Nix store is typically located at `/nix/store/`.
+
+In this sense, Nix essentially acts as a content-addressable filesystem store.
+
+### Fetchers
+
+Fetchers are built-in impure functions for fetching files over a network during expression evaluation. Example functions are `builtins.fetchurl`, `builtins.fetchGit`, and `builtins.fetchClosure`. The expression result from using these builtins when supplying a URI as an argument is the filepath in the Nix store; that is, the builtins will perform any necessary operation to fetch the file for you (and possibly perform extraction if needed) and said file will be available to you in the Nix store.
+
+### Derivations
+
+As per the Oxford Dictionary of English, the definition of the word derivation means the act of obtaining something from a source or origin. For example, the formation of a word from another word or from a root in the same or another language.
+
+The Nix Getting Started docs state derivations are core to Nix and the Nix language, that derivations are run to produce a build result, and that build results can in turn be used as inputs for other derivation. However, it is still quite vague on what a concrete derivation actually is; the idea of recursive derivations may make sense, but what is the base case of a derivation?
+
+The base case of a derivation is something that always resolves to a Nix store path that contains file. For example, by using a lookup path that points directly to a file / set of files, or the builtin `builtins.fetchTar` which will result in a path to the Nix store containing the downloaded file(s). Data can be transformed and then the output of the derivation is another file. In short, a derivation is a specification of a build that will take place; it specifies the input paths, and the output path is purely dependent on the input paths.
+
+Anything that eventually calls the `derivation` function is also considered a derivation. `derivation` is able to be called anywhere an expression can exist.
+
+#### Store derivation and deriving path
+
+### Impurities
+
+Impurities are things that can change outside of functional code. For example, reading files from a filesystem that are used as build inputs. Derivations only have access to explicitly declared build inputs. Build inputs are files that help derivations describe how to make new derived files. Build inputs can only be specified via filesystem paths or dedicated functions.
+
+Other types of impure expressions are lookup paths and `builtins.currentSystem`, of which Nix discourages the use of.

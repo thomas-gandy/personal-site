@@ -1,7 +1,10 @@
-import Flashcard from "../../../ui/Flashcard.tsx";
+import NotePage from '@/src/app/ui/NotePage'
 
-<br />
-<br />
+export default ({ children }) => (
+  <NotePage title="Getting started with" highlight="Git">
+    {children}
+  </NotePage>
+)
 
 ## Overview
 
@@ -14,7 +17,6 @@ path through the tree. Content-addressable filesystems store data like tradition
 difference is how this data is addressed. Gone are the hierarchical trees. Instead, data is addressed by a hash value,
 where the hash value is calculated from the data itself.
 
-<br />
 ## Plumbing and Porcelain
 
 From a CAF, VCS's can be built. Git was primarily built around this CAF concept and so its original commands are more
@@ -22,7 +24,6 @@ low-level, focusing less on overall VCS abstractions and more on handling the un
 are known as plumbing commands and the user-friendly VCS commands are known as porcelain commands; porcelain commands
 generally delegate to CAF (plumbing) commands.
 
-<br />
 ## Initializing Git
 
 You can initialize Git with the `git init` command in a directory. This will generally create the following filesystem
@@ -34,7 +35,6 @@ config  description  HEAD  hooks/  info/  objects/  refs/
 
 You can also specify a directory to initialize Git into with `git init <dir-path>`. The following sub-sections will go into more detail about each entry.
 
-<br />
 ## Objects
 
 When you add data to Git, it will return you a handle to that data in the form of a unique key (Git uses a SHA-1 hash on

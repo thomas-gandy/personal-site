@@ -1,3 +1,11 @@
+import NotePage from '@/src/app/ui/NotePage'
+
+export default ({ children }) => (
+  <NotePage title="Overview of" highlight="Azure" after="Durable Functions" description="Notes on what Azure Durable Functions are, their differences from traditional Azure Functions, as well as their use cases.">
+    {children}
+  </NotePage>
+)
+
 ## Resources these notes were taken from
 - [Durable Functions types and features](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-types-features-overview)
 - [Durable orchestrations](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-orchestrations?tabs=csharp-inproc)
@@ -52,7 +60,7 @@ instance ID.
 At each orchestration checkpoint (i.e. at `yield` / `await` statements), the DTF will typically save execution history
 into storage, enqueue messages for functions the orchestrator wants to invoke, and finally enqueue messages for the
 orchestrator itself.  Each time an orchestrator is resumed after waiting for a task, it will be rerun from the start.
-The DTF will check execution history to see if that task / activity 
+The DTF will check execution history to see if that task / activity
 
 
 #### Constraints

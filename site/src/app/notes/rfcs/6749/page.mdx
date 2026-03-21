@@ -1,0 +1,45 @@
+import NotePage from '@/src/app/ui/NotePage'
+
+export default ({ children }) => (
+  <NotePage title="RFC 6749" highlight="OAuth 2.0">
+    {children}
+  </NotePage>
+)
+
+This note page describes the problems that existed before OAuth, what OAuth is, and how it works. It also goes through the different possible OAuth flows. All the content here is an accumulation from the [OAuth 2.0 RFC 6749](https://www.rfc-editor.org/rfc/pdfrfc/rfc6749.txt.pdf) and the [OAuth.net site](https://oauth.net/2/).
+
+OAuth is an authorization framework. It is not defined as a protocol.
+
+## Situation before OAuth
+
+A traditional example of an authorization flow before OAuth would be a web application that needs to access an API on behalf of a user. For example, a user would fetch the client code to run on their browser. The client code would want to make API requests to a server (which could be the same server the client code came from). However, the API likely does not want to accept any requests to it (especially if the)
+
+## Task of OAuth
+
+The overall task of OAuth is to solve the shortcomings discussed in the previous section.
+
+## Action of OAuth
+
+This section goes through the implementation details of how OAuth can be implemented.
+
+There are some OAuth key terms that to be familiar with...
+
+#### Resource owner
+
+An entity that has the ability to grant access to a protected resource. For example, a human that may want to grant access to a third-party application to let the third-party access their information on a different app. Alternatively, it could be an application that wants to let another application access its APIs.
+
+#### Resource server
+
+The server that fronts (or 'protects') the protected resource. This server receives the requests that contain access tokens that it will then delegate to the authorization server to verify.
+
+#### Client
+
+An app that is making requests to the resource server. The resource owner must have already delegated access to the client such that the client has been provided an access token by the authorization server.
+
+#### Authorization server
+
+Issues access tokens to clients.
+
+## Result of OAuth
+
+## How OAuth differs from SAML
