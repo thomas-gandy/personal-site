@@ -1,13 +1,48 @@
 import type { NextConfig } from "next";
-import createMDX from '@next/mdx'
+
+const mdxLoaderOptions = {
+  providerImportSource: 'next-mdx-import-source-file',
+  remarkPlugins: [['remark-frontmatter']],
+}
 
 const nextConfig: NextConfig = {
   devIndicators: false,
   transpilePackages: ['three'],
-  /* config options here */
   pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
+  turbopack: {
+    rules: {
+      '*.mdx': {
+        loaders: [
+          {
+            loader: '@next/mdx/mdx-js-loader',
+            options: mdxLoaderOptions,
+          },
+        ],
+        as: '*.tsx',
+      },
+    },
+    resolveAlias: {
+      'next-mdx-import-source-file':
+        '@vercel/turbopack-next/mdx-import-source',
+    },
+  },
+  webpack(config) {
+    config.resolve.alias['next-mdx-import-source-file'] = [
+      'private-next-root-dir/src/mdx-components',
+      'private-next-root-dir/mdx-components',
+      '@mdx-js/react',
+    ]
+    config.module.rules.push({
+      test: /\.mdx$/,
+      use: [
+        {
+          loader: '@next/mdx/mdx-js-loader',
+          options: mdxLoaderOptions,
+        },
+      ],
+    })
+    return config
+  },
 };
 
-const withMDX = createMDX({})
- 
-export default withMDX(nextConfig);
+export default nextConfig;
