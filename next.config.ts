@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 
 const mdxLoaderOptions = {
   providerImportSource: 'next-mdx-import-source-file',
-  remarkPlugins: [['remark-frontmatter']],
+  remarkPlugins: [
+    ['remark-frontmatter'],
+    ['remark-mdx-frontmatter', { name: 'metadata' }],
+  ],
 }
 
 const nextConfig: NextConfig = {
