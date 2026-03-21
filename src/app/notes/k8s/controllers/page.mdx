@@ -3,11 +3,7 @@ title: Controllers in Kubernetes
 ---
 import NotePage from '@/src/app/ui/NotePage'
 
-export default ({ children }) => (
-  <NotePage title="Controllers in" highlight="Kubernetes">
-    {children}
-  </NotePage>
-)
+export default ({ children }) => ( <NotePage title="Controllers in" highlight="Kubernetes"> {children} </NotePage> )
 
 K8s controllers are control loops that monitor cluster state (via the control plane) and make change requests when needed to bring the system closer to the desired state.  Controllers track at least one resource type.  Their manifest spec field represents the desired state.  Controllers can carry out actions themselves (e.g. if changes must be made external to the cluster) or request a change to be made via the control plane API.  Built-in controllers regulate state via the API.
 

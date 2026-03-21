@@ -1,14 +1,9 @@
 ---
 title: Containers
 ---
-import NotePage from '@/src/app/ui/NotePage'
-import { SegmentedControl, Paper } from "@mantine/core"
+import NotePage from '@/src/app/ui/NotePage' import { SegmentedControl, Paper } from "@mantine/core"
 
-export default ({ children }) => (
-  <NotePage highlight="Containers">
-    {children}
-  </NotePage>
-)
+export default ({ children }) => ( <NotePage highlight="Containers"> {children} </NotePage> )
 
 Everything about containers, starting from underlying kernel details and runtimes and working up to higher level features, rather than the other way around.
 
@@ -55,9 +50,7 @@ Before jumping into creating cgroups, you should be aware that there are two ver
 
 For the rest of this *Linux cgroups* section, you can select the cgroup version in the segmented control below to get information for the version you want.
 
-<Paper pos={"sticky"} style={{ top: 0, zIndex: 300 }} pb={"xs"} pt={"xs"} radius={"0"}>
-  <SegmentedControl w={"100%"} data={["cgroup v1", "cgroup v2"]} />
-</Paper>
+<Paper pos={"sticky"} style={{ top: 0, zIndex: 300 }} pb={"xs"} pt={"xs"} radius={"0"}> <SegmentedControl w={"100%"} data={["cgroup v1", "cgroup v2"]} /> </Paper>
 
 You should also be aware that if you are experimenting with cgroups in a container rather than natively on a Linux host or in a Linux VM then it will not work by default. Control groups are a kernel level feature. Containers like Docker containers are isolated by default from the host and other containers in pretty much every way except kernel space, so are also useful when wanting to experiment with untrusted programs. This level of isolation is useful because you do not need to virtualize calls to the kernel, so do not have the overhead of a VM. By default you do not want such containers to have unrestricted access to the host machine's kernel. Doing so would allow them to make syscalls to e.g. `unshare`, which would allow them to exit their namespace.
 
