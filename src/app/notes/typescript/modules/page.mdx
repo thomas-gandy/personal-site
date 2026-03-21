@@ -3,7 +3,11 @@ title: JavaScript/TypeScript Modules
 ---
 import NotePage from '@/src/app/ui/NotePage'
 
-export default ({ children }) => ( <NotePage title="JavaScript/TypeScript" highlight="Modules"> {children} </NotePage> )
+export default ({ children }) => (
+  <NotePage title="JavaScript/TypeScript" highlight="Modules">
+    {children}
+  </NotePage>
+)
 
 Originally, JS files were included as `<script>` tags in a HTML file. Each script included like this shared the same global scope of each other's functions and variables, which was not ideal. A system that gives each script its own scope, also allowing scopes to communicate, is called a module system. Scripts in a module system are then known as modules.
 

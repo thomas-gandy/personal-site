@@ -3,7 +3,11 @@ title: Services in Kubernetes
 ---
 import NotePage from '@/src/app/ui/NotePage'
 
-export default ({ children }) => ( <NotePage title="Services in" highlight="Kubernetes"> {children} </NotePage> )
+export default ({ children }) => (
+  <NotePage title="Services in" highlight="Kubernetes">
+    {children}
+  </NotePage>
+)
 
 Services are k8s objects that let you expose several pods (the logical set of endpoints) behind a single endpoint so that you don't need to keep track of individual pod IPs.  This is useful for Deployments which abstract away pod creation.  Pods abstracted by a Service are normally defined with a label selector.
 

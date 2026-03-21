@@ -1,9 +1,14 @@
 ---
 title: Getting started with the Nix language
 ---
-import NotePage from '@/src/app/ui/NotePage' import { SimpleGrid, Stack, Title, Code } from "@mantine/core"
+import NotePage from '@/src/app/ui/NotePage'
+import { SimpleGrid, Stack, Title, Code } from "@mantine/core"
 
-export default ({ children }) => ( <NotePage title="Getting started with the" highlight="Nix" after="language" description="Notes on an introduction to Nix syntax and language features."> {children} </NotePage> )
+export default ({ children }) => (
+  <NotePage title="Getting started with the" highlight="Nix" after="language" description="Notes on an introduction to Nix syntax and language features.">
+    {children}
+  </NotePage>
+)
 
 ## How to run Nix code
 
@@ -25,11 +30,30 @@ An attribute set is a collection of name-value pairs; it has behaviour like a di
 
 If there is a nested attribute in an attribute set, it can be specified with an attribute path (as below) rather than having to type out the entire nested brace syntax.
 
-<SimpleGrid cols={2}> <Stack> <Title order={5}>Without attribute path</Title> <Code block>{`{ a = { b = { c = 1; d = 2; }; }; }`}</Code> </Stack> <Stack> <Title order={5}>With attribute path</Title> <Code block>{`{ a.b.c = 1; a.b.d = 2; }
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>Without attribute path</Title>
+    <Code block>{`{
+a = {
+    b = {
+      c = 1;
+      d = 2;
+    };
+}; }`}</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>With attribute path</Title>
+    <Code block>{`{
+    a.b.c = 1; a.b.d = 2;
+}
 
 or, a combination of nested and path
 
-{ a.b = { c = 1; d = 2; }; }`}</Code> </Stack> </SimpleGrid>
+{
+    a.b = { c = 1; d = 2; };
+}`}</Code>
+  </Stack>
+</SimpleGrid>
 
 Attribute set values can be accessed with dot notation.
 
@@ -37,7 +61,11 @@ Attribute set values can be accessed with dot notation.
 
 Recursive attribute sets allow attributes within a set to access other attributes in the same set. Any cycles will result in an infinite recursion error. It does not matter what order attributes are defined in, even if an attribute that depends on another is defined before the attribute it references. In the example below, the nested attribute `a.b.c` will be set to `2` and would fail in a normal attribute set.
 
-<Code block>{`rec { a.b = { c = a.b.d; d = 2; }; }`}</Code>
+<Code block>{`rec {
+    a.b = {
+        c = a.b.d; d = 2;
+    };
+}`}</Code>
 
 The value result of a recursive attribute set is an attribute set
 
@@ -49,25 +77,62 @@ Using `let` expressions define a short, local scoped block where variables can b
 
 Similar to recursive attribute sets, assignments within the let block can reference other assignments in the same block. It doesn't matter what order the assignments are performed, as long as there is no cycle. However, unlike recursive attribute sets, expressions after the `in` keyword are not confined to producing an attribute set value.
 
-<SimpleGrid cols={2}> <Stack> <Title order={5}>Producing an attribute set</Title> <Code block>{`let a = { b = { c = { d = 1; }; }; }; e = a.b; in e.c`}</Code> <Code block>{`{ d = 1; }`}</Code> </Stack> <Stack> <Title order={5}>Producing a list</Title> <Code block>{`let b = a; a = 3; in [a b]`}</Code> <Code block>{`[ 3 3 ]`}</Code> </Stack> </SimpleGrid>
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>Producing an attribute set</Title>
+    <Code block>{`let
+    a = { b = { c = { d = 1; }; }; };
+    e = a.b;
+in
+    e.c`}</Code>
+    <Code block>{`{ d = 1; }`}</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>Producing a list</Title>
+    <Code block>{`let
+    b = a;
+    a = 3;
+in
+    [a b]`}</Code>
+    <Code block>{`[ 3 3 ]`}</Code>
+  </Stack>
+</SimpleGrid>
 
 Let expressions can be nested like so
 
-<Code block>{`let a = 1; b = let c = a + 1; in c; in b`}</Code>
+<Code block>{`let
+a = 1; b =
+    let
+      c = a + 1;
+    in
+      c;
+in b`}</Code>
 
 ### `with` expression
 
 The `with ...` expression is like a C++ `using namespace` expression for an attribute set which means you don't have to keep referencing ancestors of an attribute in a nested attribute set.
 
-<Code block>{`let a = { b = { c = { d = 3; }; }; }; in with a.b; [ c c.d ]`}</Code> <Code block>{`[ { d = 3; } 3 ]`}</Code>
+<Code block>{`let a = { b = { c = { d = 3; }; }; }; in with a.b; [ c c.d ]`}</Code>
+<Code block>{`[ { d = 3; } 3 ]`}</Code>
 
 The attributes made available with the `with` expression are only in-scope for the expression immediately following the semicolon (;) of the `with` expression. So, the below Nix code would not work, as `x` is no longer accessible in the assignment to `c`.
 
-<Code block>{`let a = { x = 1; y = 2; z = 3; }; in { b = with a; [ x y z ]; c = x; }`}</Code>
+<Code block>{`let
+a = {
+    x = 1;
+    y = 2;
+    z = 3;
+}; in
+{
+b = with a; [ x y z ]; c = x; }`}</Code>
 
 Due to the fact that `with` is an expression, it can be placed anywhere where a value can be returned. That means they are not limited to just the `in` block of a `let` expression. They can also be part of an assignment in the `let` block as shown below.
 
-<Code block>{`let a = { b = 1; }; c = with a; [ b ]; in c`}</Code> <Code block>1</Code>
+<Code block>{`let
+a = {
+    b = 1;
+}; c = with a; [ b ]; in c`}</Code>
+<Code block>1</Code>
 
 ### `inherit` shorthand
 
@@ -75,13 +140,66 @@ The `inherit ...` shorthand allows you to extract an assignment from some scope 
 
 I'll go through a few different use cases where using `inherit` is useful. The first (admittedly contrived, but most fundamental) example below shows how you can use `inherit` to avoid needing to redefine an outer `let` block variable to reference it inside a nested `let` block.
 
-<SimpleGrid cols={2}> <Stack> <Title order={5}>With inherit</Title> <Code block>{`let a = 1; b = let inherit a; in a + 1; in b`}</Code> <Code block>2</Code> </Stack> <Stack> <Title order={5}>Without inherit</Title> <Code block>{`let a = 1; b = let c = a; # 'a' is copied into scope in c + 1; in b`}</Code> <Code block>2</Code> </Stack> </SimpleGrid>
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>With inherit</Title>
+    <Code block>{`let
+a = 1; b =
+    let
+      inherit a;
+    in
+      a + 1;
+in b`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>Without inherit</Title>
+    <Code block>{`let
+a = 1; b =
+    let
+      c = a; # 'a' is copied into scope
+    in
+      c + 1;
+in b`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
 
 It is a contrived example because in reality you could just access `a` directly from inside the nested `in` block without needing to redefine the value in the nested `let` block. However, it does let you see how `inherit` can be used in its most simple form to bring an assignment into a nested scope (and in this case meaning you don't have to copy `a` across to a new nested assignment). Additionally, it gives light to how `inherit` is just syntatical sugar and is essentially just a macro.
 
 The previous example showed how it is legal to `inherit` atomically typed assignments into nested scopes. The next example shows how you can `inherit` assigned values from within an attribute set.
 
-<SimpleGrid cols={2}> <Stack> <Title order={5}>Single inheritance</Title> <Code block>{`let g = { h = 3; i = 4; }; a = let b = { c = 1; }; inherit g; in g; in a`}</Code> <Code block>2</Code> </Stack> <Stack> <Title order={5}>Nested inheritance</Title> <Code block>{`let g = { h = 3; i = { j = { k = 4; }; l = 5; }; }; a = let b = { c = 1; }; inherit (g.i) j; in j; in a`}</Code> <Code block>2</Code> </Stack> </SimpleGrid>
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>Single inheritance</Title>
+    <Code block>{`let
+g = {
+    h = 3;
+    i = 4;
+}; a = let
+    b = {
+      c = 1;
+    };
+    inherit g;
+in g; in a`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>Nested inheritance</Title>
+    <Code block>{`let
+g = {
+    h = 3;
+    i = {
+      j = { k = 4; };
+      l = 5;
+    };
+}; a = let
+    b = { c = 1; };
+    inherit (g.i) j;
+in j; in a`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
 
 Note how when using `inherit` to extract nested properties from an attribute set you can use simple syntax like `inherit g;` for non-nested inheritance to essentially bring the entirety of `g` into scope for the `let` expression for the `a` assignment. Alternatively, if you want to extract out certain properties of a previously defined attribute set, you can use nested inheritance by specifying the path to the parent of the property you want to extract. This parent property is not brought into the current `inherit` scope, but you can then specify multiple properties inside of the parent attribute set to bring into the current scope simply by space seprated names.
 
@@ -91,7 +209,11 @@ Note how when using `inherit` to extract nested properties from an attribute set
 
 It is illegal to use `inherit` in a non attribute set assignment.
 
-<Code block>{`let g = { h = 3; i = 4; }; a = let b = { c = 1; }; d = inherit g; # illegal in b; in a`}</Code>
+<Code block>{`let
+g = { h = 3; i = 4; }; a = let
+    b = { c = 1; };
+    d = inherit g; # illegal
+in b; in a`}</Code>
 
 ##### How does `inherit` differ to a `with` expression?
 
@@ -99,11 +221,57 @@ It is illegal to use `inherit` in a non attribute set assignment.
 
 The below examples show how `with` and `inherit` can be used individually in a `let` expression to achieve the same result.
 
-<SimpleGrid cols={2}> <Stack> <Title order={5}>`with` expression</Title> <Code block>{`let a = { b = { c = 1; }; }; d = let e = with a; b; in e; in d`}</Code> <Code block>2</Code> </Stack> <Stack> <Title order={5}>`inherit` statement</Title> <Code block>{`let a = { b = { c = 1; }; }; d = let inherit (a) b; in b; in d`}</Code> <Code block>2</Code> </Stack> </SimpleGrid>
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>`with` expression</Title>
+    <Code block>{`let
+a = {
+    b = { c = 1; };
+}; d = let
+    e = with a; b;
+in e; in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>`inherit` statement</Title>
+    <Code block>{`let
+a = {
+    b = { c = 1; };
+}; d = let
+    inherit (a) b;
+in b; in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
 
 Below is yet another example that is similar but with more nesting.
 
-<SimpleGrid cols={2}> <Stack> <Title order={5}>`with` expression</Title> <Code block>{`let a = { b = { c = { z = 1; }; }; }; d = let e = with a.b; c; in e; in d`}</Code> <Code block>2</Code> </Stack> <Stack> <Title order={5}>`inherit` statement</Title> <Code block>{`let a = { b = { c = { z = 1; }; }; }; d = let inherit (a.b) c; in c; in d`}</Code> <Code block>2</Code> </Stack> </SimpleGrid>
+<SimpleGrid cols={2}>
+  <Stack>
+    <Title order={5}>`with` expression</Title>
+    <Code block>{`let
+a = {
+    b = {
+      c = { z = 1; };
+    };
+}; d = let
+    e = with a.b; c;
+in e; in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+  <Stack>
+    <Title order={5}>`inherit` statement</Title>
+    <Code block>{`let
+a = {
+    b = {
+      c = { z = 1; };
+    };
+}; d = let
+    inherit (a.b) c;
+in c; in d`}</Code>
+    <Code block>2</Code>
+  </Stack>
+</SimpleGrid>
 
 Notice how you can drill down to specify the parent attribute set for both `with` and `inherit` with dot-notation, and then specify which attributes to make available in the immediate expression (in the case of `with`) and the overall nested scope (in the case of `inherit`).
 
@@ -143,11 +311,13 @@ There are two common libraries: `builtins` and `pkgs.lib`.
 
 The `nixpkgs` code repository contains a vast number of functions available inside an attribute set named `lib`. These functions are written in the Nix language and are not written in C++. To access `lib`, you must first import the `nixpkg`, which can be achieved using the `<nixpkg>` lookup path such as
 
-<Code block>{`let pkgs = import <nixpkgs> {} in pkgs.lib.strings.toUpper "this is an uppercase string"`}</Code>
+<Code block>{`let
+pkgs = import <nixpkgs> {} in pkgs.lib.strings.toUpper "this is an uppercase string"`}</Code>
 
 Some of the functions in `pkgs.lib` are equivalent to the `builtins` of the same name for historical reasons. It is not recommended to import using the `<nixpkg>` lookup path directly as it is not reproducible and uses whatever version of the repository is available on the host machine. It is important to ensure the specific version is pinned, which can be achieved by specifying and fetching the specific gzipped tar file like so (as per the snippet from the Nix docs).
 
-<Code block>{`let nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/archive/06278c77b5d162e62df170fec307e83f1812d94b.tar.gz"; pkgs = import nixpkgs {}; in pkgs.lib.strings.toUpper "always pin your sources"`}</Code>
+<Code block>{`let
+nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/archive/06278c77b5d162e62df170fec307e83f1812d94b.tar.gz"; pkgs = import nixpkgs {}; in pkgs.lib.strings.toUpper "always pin your sources"`}</Code>
 
 ### Paths
 
